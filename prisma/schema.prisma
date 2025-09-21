@@ -1,0 +1,179 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  role          UserRole  @default(CHILD)
+  familyId      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  accounts          Account[]
+  sessions          Session[]
+  family            Family?              @relation(fields: [familyId], references: [id])
+  createdTasks      Task[]               @relation("TaskCreator")
+  assignedTasks     Task[]               @relation("TaskAssignee")
+  taskCompletions   TaskCompletion[]
+  userPoints        UserPoints?
+  createdRewards    Reward[]
+  redeemedRewards   RewardRedemption[]
+
+  @@map("users")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Family {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  members User[]
+  tasks   Task[]
+  rewards Reward[]
+
+  @@map("families")
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  points      Int        @default(1)
+  isRecurring Boolean    @default(false)
+  daysOfWeek  String[]   // ["monday", "tuesday", etc] for recurring tasks
+  createdById String
+  assignedToId String?
+  familyId    String
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  createdBy   User               @relation("TaskCreator", fields: [createdById], references: [id])
+  assignedTo  User?              @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  family      Family             @relation(fields: [familyId], references: [id])
+  completions TaskCompletion[]
+
+  @@map("tasks")
+}
+
+model TaskCompletion {
+  id          String    @id @default(cuid())
+  taskId      String
+  userId      String
+  completedAt DateTime  @default(now())
+  verifiedBy  String?   // Parent can verify child's completion
+  notes       String?
+  photoUrl    String?   // For photo evidence
+
+  // Relations
+  task Task @relation(fields: [taskId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("task_completions")
+}
+
+model UserPoints {
+  id           String @id @default(cuid())
+  userId       String @unique
+  currentPoints Int    @default(0)
+  totalEarned  Int    @default(0)
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("user_points")
+}
+
+model Reward {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?
+  pointsRequired Int
+  isActive      Boolean  @default(true)
+  createdById   String
+  familyId      String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  createdBy   User               @relation(fields: [createdById], references: [id])
+  family      Family             @relation(fields: [familyId], references: [id])
+  redemptions RewardRedemption[]
+
+  @@map("rewards")
+}
+
+model RewardRedemption {
+  id         String   @id @default(cuid())
+  rewardId   String
+  userId     String
+  redeemedAt DateTime @default(now())
+  approved   Boolean  @default(false)
+  approvedBy String?
+
+  // Relations
+  reward Reward @relation(fields: [rewardId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@map("reward_redemptions")
+}
+
+enum UserRole {
+  PARENT
+  CHILD
+}
