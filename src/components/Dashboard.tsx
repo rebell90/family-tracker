@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { Star, CheckCircle, Plus, Gift } from 'lucide-react'
+import { Star, CheckCircle, Plus, Gift, Settings } from 'lucide-react'
+import TaskManager from './TaskManager'
 
 interface Task {
   id: string
@@ -29,7 +30,7 @@ export default function Dashboard() {
     tasksCompletedToday: 0,
     streak: 0
   })
-  const [showAddTask, setShowAddTask] = useState(false)
+  const [showTaskManager, setShowTaskManager] = useState(false)
 
   const isParent = session?.user?.role === 'PARENT'
   const isChild = session?.user?.role === 'CHILD'
@@ -71,6 +72,26 @@ export default function Dashboard() {
     }
   }
 
+  // If parent is viewing task manager, show that instead
+  if (isParent && showTaskManager) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-3xl font-bold text-gray-800">Task Manager</h1>
+            <button
+              onClick={() => setShowTaskManager(false)}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              Back to Dashboard
+            </button>
+          </div>
+          <TaskManager />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
       <div className="max-w-4xl mx-auto">
@@ -86,11 +107,11 @@ export default function Dashboard() {
           </div>
           {isParent && (
             <button
-              onClick={() => setShowAddTask(true)}
+              onClick={() => setShowTaskManager(true)}
               className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
             >
-              <Plus size={20} />
-              Add Task
+              <Settings size={20} />
+              Manage Tasks
             </button>
           )}
         </div>
@@ -205,6 +226,13 @@ export default function Dashboard() {
           <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-xl font-semibold text-gray-800 mb-4">Quick Actions</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <button 
+                onClick={() => setShowTaskManager(true)}
+                className="p-4 text-left rounded-lg border border-gray-200 hover:border-purple-300 transition-colors"
+              >
+                <h3 className="font-medium text-gray-800">Manage Tasks</h3>
+                <p className="text-sm text-gray-600 mt-1">Add, edit, or remove family tasks</p>
+              </button>
               <button className="p-4 text-left rounded-lg border border-gray-200 hover:border-purple-300 transition-colors">
                 <h3 className="font-medium text-gray-800">Add New Reward</h3>
                 <p className="text-sm text-gray-600 mt-1">Create something to work towards</p>
@@ -212,10 +240,6 @@ export default function Dashboard() {
               <button className="p-4 text-left rounded-lg border border-gray-200 hover:border-purple-300 transition-colors">
                 <h3 className="font-medium text-gray-800">View Progress</h3>
                 <p className="text-sm text-gray-600 mt-1">See detailed analytics</p>
-              </button>
-              <button className="p-4 text-left rounded-lg border border-gray-200 hover:border-purple-300 transition-colors">
-                <h3 className="font-medium text-gray-800">Family Settings</h3>
-                <p className="text-sm text-gray-600 mt-1">Manage users and preferences</p>
               </button>
             </div>
           </div>
