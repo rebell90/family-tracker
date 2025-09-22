@@ -92,20 +92,28 @@ const handleJoin = async (e: React.FormEvent) => {
         
         if (migrate) {
           try {
+            console.log('Attempting migration with:', {
+              oldFamilyId: data.oldFamilyId,
+              newFamilyId: data.familyId
+            })
+            
             const migrateResponse = await fetch('/api/family/migrate-tasks', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                oldFamilyId: session?.user?.familyId, // Will need to get this from somewhere
+                oldFamilyId: data.oldFamilyId,  // ← CHANGED: Use data.oldFamilyId
                 newFamilyId: data.familyId
               })
             })
             
+            console.log('Migration response status:', migrateResponse.status)
+            const result = await migrateResponse.json()
+            console.log('Migration result:', result)
+            
             if (migrateResponse.ok) {
-              const result = await migrateResponse.json()
               setMessage(`${data.message} ${result.message}`)
             } else {
-              setMessage(data.message + ' (Tasks were not migrated)')
+              setMessage(data.message + ' (Tasks were not migrated: ' + result.error + ')')
             }
           } catch (error) {
             console.error('Migration failed:', error)
