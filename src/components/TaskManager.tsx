@@ -2,17 +2,23 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { Plus, Edit, Trash2, Save, X } from 'lucide-react'
+import { Plus, Edit, Trash2, Save, X, User } from 'lucide-react'
+import { TASK_CATEGORIES, getCategoryInfo, type TaskCategory } from '@/lib/categories'
 
 interface Task {
   id: string
   title: string
   description?: string
   points: number
+  category: TaskCategory
   assignedTo?: {
     id: string
     name: string
     role: string
+  }
+  createdBy?: {
+    id: string
+    name: string
   }
   isRecurring: boolean
   daysOfWeek: string[]
@@ -22,6 +28,7 @@ interface Task {
 interface FamilyMember {
   id: string
   name: string
+  email: string
   role: string
 }
 
@@ -36,6 +43,7 @@ export default function TaskManager() {
     title: '',
     description: '',
     points: 1,
+    category: 'CHORES' as TaskCategory,
     assignedToId: '',
     isRecurring: false,
     daysOfWeek: []
@@ -55,6 +63,7 @@ export default function TaskManager() {
       const response = await fetch('/api/tasks')
       if (response.ok) {
         const data = await response.json()
+        console.log('Fetched tasks:', data.tasks)
         setTasks(data.tasks)
       } else {
         console.error('Failed to fetch tasks:', response.status, response.statusText)
@@ -65,11 +74,18 @@ export default function TaskManager() {
   }
 
   const fetchFamilyMembers = async () => {
-    // For now, we'll use mock data. In a real app, you'd fetch from an API
-    setFamilyMembers([
-      { id: session?.user?.id || '', name: 'Me (Parent)', role: 'PARENT' },
-      // We'll add a way to get actual family members later
-    ])
+    try {
+      const response = await fetch('/api/family')
+      if (response.ok) {
+        const data = await response.json()
+        console.log('Fetched family members:', data.members)
+        setFamilyMembers(data.members)
+      } else {
+        console.error('Failed to fetch family members:', response.status)
+      }
+    } catch (error) {
+      console.error('Error fetching family members:', error)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -77,7 +93,7 @@ export default function TaskManager() {
     setError('')
     
     try {
-      console.log('Submitting form data:', formData) // Debug log
+      console.log('Submitting form data:', formData)
       
       const url = editingTask ? `/api/tasks/${editingTask}` : '/api/tasks'
       const method = editingTask ? 'PUT' : 'POST'
@@ -90,17 +106,24 @@ export default function TaskManager() {
         body: JSON.stringify(formData),
       })
 
-      console.log('Response status:', response.status) // Debug log
+      console.log('Response status:', response.status)
       
       if (response.ok) {
-        fetchTasks()
+        const responseData = await response.json()
+        console.log('Success response:', responseData)
+        await fetchTasks()
         resetForm()
         setError('')
       } else {
-        // Get the actual error message from the server
-        const errorData = await response.json()
-        console.error('API Error:', response.status, errorData)
-        setError(errorData.error || `Failed to save task (${response.status})`)
+        let errorData
+        try {
+          errorData = await response.json()
+        } catch (parseError) {
+          console.error('Failed to parse error response:', parseError)
+          errorData = { error: 'Unknown server error' }
+        }
+        console.error('API Error:', response.status, response.statusText, errorData)
+        setError(errorData.error || `Failed to save task (${response.status}: ${response.statusText})`)
       }
     } catch (error) {
       console.error('Network error:', error)
@@ -135,6 +158,7 @@ export default function TaskManager() {
       title: task.title,
       description: task.description || '',
       points: task.points,
+      category: task.category,
       assignedToId: task.assignedTo?.id || '',
       isRecurring: task.isRecurring,
       daysOfWeek: task.daysOfWeek
@@ -148,6 +172,7 @@ export default function TaskManager() {
       title: '',
       description: '',
       points: 1,
+      category: 'CHORES',
       assignedToId: '',
       isRecurring: false,
       daysOfWeek: []
@@ -156,6 +181,18 @@ export default function TaskManager() {
     setEditingTask(null)
     setError('')
   }
+
+  // Group tasks by category
+  const tasksByCategory = tasks.reduce((acc, task) => {
+    if (!acc[task.category]) {
+      acc[task.category] = []
+    }
+    acc[task.category].push(task)
+    return acc
+  }, {} as Record<TaskCategory, Task[]>)
+
+  // Get children for assignment
+  const children = familyMembers.filter(member => member.role === 'CHILD')
 
   if (!isParent) {
     return (
@@ -169,7 +206,10 @@ export default function TaskManager() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Manage Tasks</h2>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800">Manage Tasks</h2>
+          <p className="text-sm text-gray-600">Family Members: {familyMembers.map(m => m.name).join(', ')}</p>
+        </div>
         <button
           onClick={() => setShowAddForm(true)}
           className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
@@ -193,7 +233,7 @@ export default function TaskManager() {
           )}
           
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Task Title *
@@ -210,6 +250,23 @@ export default function TaskManager() {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Category
+                </label>
+                <select
+                  value={formData.category}
+                  onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as TaskCategory }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white"
+                >
+                  {Object.entries(TASK_CATEGORIES).map(([key, category]) => (
+                    <option key={key} value={key}>
+                      {category.icon} {category.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Points
                 </label>
                 <input
@@ -222,17 +279,37 @@ export default function TaskManager() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Description
-              </label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white placeholder-gray-500"
-                rows={2}
-                placeholder="Optional description..."
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Assign to
+                </label>
+                <select
+                  value={formData.assignedToId}
+                  onChange={(e) => setFormData(prev => ({ ...prev, assignedToId: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white"
+                >
+                  <option value="">Everyone (no specific assignment)</option>
+                  {children.map(child => (
+                    <option key={child.id} value={child.id}>
+                      {child.name} ({child.role})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white placeholder-gray-500"
+                  rows={2}
+                  placeholder="Optional description..."
+                />
+              </div>
             </div>
 
             <div className="flex gap-4">
@@ -257,54 +334,79 @@ export default function TaskManager() {
         </div>
       )}
 
-      {/* Tasks List */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Current Tasks</h3>
-        
-        {tasks.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            No tasks yet. Create your first task above!
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {tasks.map((task) => (
-              <div
-                key={task.id}
-                className="flex items-center justify-between p-4 rounded-lg border border-gray-200 hover:border-purple-300 transition-colors"
-              >
-                <div className="flex-1">
-                  <h4 className="font-medium text-gray-800">{task.title}</h4>
-                  {task.description && (
-                    <p className="text-sm text-gray-600 mt-1">{task.description}</p>
-                  )}
-                  <div className="flex items-center gap-4 mt-2">
-                    <span className="text-sm text-purple-600 font-medium">
-                      {task.points} points
-                    </span>
-                    {task.assignedTo && (
-                      <span className="text-sm text-gray-500">
-                        Assigned to: {task.assignedTo.name}
-                      </span>
-                    )}
+      {/* Tasks List - Grouped by Category */}
+      <div className="space-y-6">
+        {Object.entries(TASK_CATEGORIES).map(([categoryKey, categoryInfo]) => {
+          const categoryTasks = tasksByCategory[categoryKey as TaskCategory] || []
+          
+          if (categoryTasks.length === 0) return null
+
+          return (
+            <div key={categoryKey} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <span className="text-2xl">{categoryInfo.icon}</span>
+                {categoryInfo.label}
+                <span className="text-sm text-gray-500 ml-2">({categoryTasks.length})</span>
+              </h3>
+              
+              <div className="space-y-3">
+                {categoryTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className={`flex items-center justify-between p-4 rounded-lg border-2 transition-colors ${categoryInfo.bgColor} ${categoryInfo.borderColor}`}
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-medium text-gray-800">{task.title}</h4>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${categoryInfo.color}`}>
+                          {categoryInfo.icon} {categoryInfo.label}
+                        </span>
+                      </div>
+                      {task.description && (
+                        <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+                      )}
+                      <div className="flex items-center gap-4 mt-2 text-sm">
+                        <span className="text-purple-600 font-medium">
+                          {task.points} points
+                        </span>
+                        {task.assignedTo && (
+                          <span className="text-blue-600 flex items-center gap-1">
+                            <User size={12} />
+                            For: {task.assignedTo.name}
+                          </span>
+                        )}
+                        {task.createdBy && (
+                          <span className="text-gray-500">
+                            Created by: {task.createdBy.name}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => startEdit(task)}
+                        className="text-blue-600 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition-colors"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        onClick={() => deleteTask(task.id)}
+                        className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-                
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => startEdit(task)}
-                    className="text-blue-600 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition-colors"
-                  >
-                    <Edit size={16} />
-                  </button>
-                  <button
-                    onClick={() => deleteTask(task.id)}
-                    className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+                ))}
               </div>
-            ))}
+            </div>
+          )
+        })}
+
+        {tasks.length === 0 && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
+            <p className="text-gray-500">No tasks yet. Create your first task above!</p>
           </div>
         )}
       </div>

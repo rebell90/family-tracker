@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     console.log('Request body:', body)
     
-    const { title, description, points, assignedToId, isRecurring, daysOfWeek } = body
+    const { title, description, points, category, assignedToId, isRecurring, daysOfWeek } = body
 
     // Create family if it doesn't exist
     let familyId = user.familyId
@@ -108,13 +108,14 @@ export async function POST(request: NextRequest) {
       console.log('Created family:', familyId)
     }
 
-    console.log('Creating task with familyId:', familyId)
+    console.log('Creating task with familyId:', familyId, 'category:', category)
 
     const task = await prisma.task.create({
       data: {
         title,
         description,
         points: parseInt(points) || 1,
+        category: category || 'CHORES',
         assignedToId: assignedToId || null,
         createdById: user.id,
         familyId,
@@ -124,6 +125,9 @@ export async function POST(request: NextRequest) {
       include: {
         assignedTo: {
           select: { id: true, name: true, role: true }
+        },
+        createdBy: {
+          select: { id: true, name: true }
         }
       }
     })

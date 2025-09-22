@@ -33,7 +33,7 @@ export async function PUT(
     const body = await request.json()
     console.log('Update request body:', body)
 
-    const { title, description, points, assignedToId, isRecurring, daysOfWeek, isActive } = body
+    const { title, description, points, category, assignedToId, isRecurring, daysOfWeek, isActive } = body
 
     // Check if task exists and belongs to user's family
     const existingTask = await prisma.task.findUnique({
@@ -46,7 +46,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
 
-    console.log('Existing task found, updating...')
+    console.log('Existing task found, updating with category:', category)
 
     const task = await prisma.task.update({
       where: { id: params.id },
@@ -54,6 +54,7 @@ export async function PUT(
         title,
         description,
         points: parseInt(points) || 1,
+        category: category || 'CHORES',  // ← Added category field
         assignedToId: assignedToId || null,
         isRecurring: isRecurring || false,
         daysOfWeek: daysOfWeek || [],

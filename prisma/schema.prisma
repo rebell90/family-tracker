@@ -83,18 +83,19 @@ model Family {
 }
 
 model Task {
-  id          String     @id @default(cuid())
+  id          String       @id @default(cuid())
   title       String
   description String?
-  points      Int        @default(1)
-  isRecurring Boolean    @default(false)
+  points      Int          @default(1)
+  category    TaskCategory @default(CHORES)
+  isRecurring Boolean      @default(false)
   daysOfWeek  String[]
   createdById String
   assignedToId String?
   familyId    String
-  isActive    Boolean    @default(true)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   // Relations
   createdBy   User               @relation("TaskCreator", fields: [createdById], references: [id])
@@ -171,4 +172,12 @@ model RewardRedemption {
 enum UserRole {
   PARENT
   CHILD
+}
+
+enum TaskCategory {
+  CHORES
+  HOMEWORK
+  PERSONAL_CARE
+  GOALS
+  OTHER
 }
