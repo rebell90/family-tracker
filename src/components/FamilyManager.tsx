@@ -66,36 +66,73 @@ export default function FamilyManager() {
     }
   }
 
-  const handleJoin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setMessage('')
+const handleJoin = async (e: React.FormEvent) => {
+  e.preventDefault()
+  setError('')
+  setMessage('')
 
-    try {
-      const response = await fetch('/api/family/invite', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: joinEmail,
-          action: 'join'
-        }),
-      })
+  try {
+    const response = await fetch('/api/family/invite', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: joinEmail,
+        action: 'join'
+      }),
+    })
 
-      const data = await response.json()
+    const data = await response.json()
 
-      if (response.ok) {
-        setMessage(data.message)
-        setJoinEmail('')
-        fetchFamilyMembers()
+    if (response.ok) {
+      // Check if migration is needed
+      if (data.needsMigration) {
+        const migrate = confirm(`You have ${data.taskCount} existing tasks. Move them to your new family?`)
+        
+        if (migrate) {
+          try {
+            const migrateResponse = await fetch('/api/family/migrate-tasks', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                oldFamilyId: session?.user?.familyId, // Will need to get this from somewhere
+                newFamilyId: data.familyId
+              })
+            })
+            
+            if (migrateResponse.ok) {
+              const result = await migrateResponse.json()
+              setMessage(`${data.message} ${result.message}`)
+            } else {
+              setMessage(data.message + ' (Tasks were not migrated)')
+            }
+          } catch (error) {
+            console.error('Migration failed:', error)
+            setMessage(data.message + ' (Task migration failed)')
+          }
+        } else {
+          setMessage(data.message + ' (Tasks were not moved)')
+        }
       } else {
-        setError(data.error)
+        setMessage(data.message)
       }
-    } catch (error) {
-      setError('Failed to join family')
+      
+      setJoinEmail('')
+      fetchFamilyMembers()
+      
+      // Refresh the page to show updated tasks
+      setTimeout(() => {
+        window.location.reload()
+      }, 2000)
+      
+    } else {
+      setError(data.error)
     }
+  } catch (error) {
+    setError('Failed to join family')
   }
+}
 
   return (
     <div className="space-y-6">
