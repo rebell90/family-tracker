@@ -51,8 +51,27 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' }
     })
 
-    console.log('Found tasks:', tasks.length)
-    return NextResponse.json({ tasks })
+    // Transform tasks to include completion status
+const tasksWithCompletionStatus = tasks.map(task => {
+  const completedToday = task.completions.length > 0
+  
+  return {
+    id: task.id,
+    title: task.title,
+    description: task.description,
+    points: task.points,
+    category: task.category,
+    assignedTo: task.assignedTo,
+    createdBy: task.createdBy,
+    completed: completedToday, // For backwards compatibility
+    completedToday: completedToday,
+    isRecurring: task.isRecurring,
+    daysOfWeek: task.daysOfWeek
+  }
+})
+
+console.log('Found tasks:', tasksWithCompletionStatus.length)
+return NextResponse.json({ tasks: tasksWithCompletionStatus })
   } catch (error) {
     console.error('Error in GET /api/tasks:', error)
     return NextResponse.json({ error: 'Failed to fetch tasks' }, { status: 500 })

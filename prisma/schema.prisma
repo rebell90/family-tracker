@@ -96,6 +96,7 @@ model Task {
   isActive    Boolean      @default(true)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+  completedAt DateTime?
 
   // Relations
   createdBy   User               @relation("TaskCreator", fields: [createdById], references: [id])

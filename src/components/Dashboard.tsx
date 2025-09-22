@@ -38,41 +38,76 @@ export default function Dashboard() {
   const isChild = session?.user?.role === 'CHILD'
 
   // Mock data for now - we'll replace with real API calls later
-  useEffect(() => {
-    setTasks([
-      { id: '1', title: 'Make bed', points: 5, completed: false, completedToday: false },
-      { id: '2', title: 'Feed pets', points: 3, completed: true, completedToday: true },
-      { id: '3', title: 'Homework complete', points: 10, completed: false, completedToday: false },
-      { id: '4', title: 'Clean room', points: 8, completed: false, completedToday: false },
-    ])
+useEffect(() => {
+  fetchTasks()
+  fetchUserPoints()
+}, [])
 
-    setStats({
-      currentPoints: 47,
-      totalEarned: 156,
-      tasksCompletedToday: 1,
-      streak: 3
-    })
-  }, [])
+    // Add this state for loading
+const [completingTask, setCompletingTask] = useState<string | null>(null)
 
-  const completeTask = async (taskId: string) => {
-    // This will be an API call later
-    setTasks(prev => prev.map(task => 
-      task.id === taskId 
-        ? { ...task, completed: true, completedToday: true }
-        : task
-    ))
-    
-    // Update points
-    const task = tasks.find(t => t.id === taskId)
-    if (task) {
+// Add this function near your other functions
+const fetchTasks = async () => {
+  try {
+    const response = await fetch('/api/tasks')
+    if (response.ok) {
+      const data = await response.json()
+      // The API should return tasks with their completion status
+      setTasks(data.tasks || [])
+    }
+  } catch (error) {
+    console.error('Error fetching tasks:', error)
+  }
+}
+
+const fetchUserPoints = async () => {
+  try {
+    const response = await fetch('/api/user/points')
+    if (response.ok) {
+      const data = await response.json()
       setStats(prev => ({
         ...prev,
-        currentPoints: prev.currentPoints + task.points,
-        totalEarned: prev.totalEarned + task.points,
-        tasksCompletedToday: prev.tasksCompletedToday + 1
+        currentPoints: data.currentPoints,
+        totalEarned: data.totalEarned
       }))
     }
+  } catch (error) {
+    console.error('Error fetching points:', error)
   }
+}
+
+// Add this function for completing tasks
+const handleCompleteTask = async (taskId: string) => {
+  setCompletingTask(taskId)
+  
+  try {
+    const response = await fetch('/api/tasks/complete', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ taskId }),
+    })
+
+    const data = await response.json()
+
+    if (response.ok) {
+      // Show success message
+      alert(data.message) // We can make this prettier later
+      
+      // Refresh tasks and user data
+      fetchTasks()
+      fetchUserPoints()
+    } else {
+      alert(data.error)
+    }
+  } catch (error) {
+    console.error('Error completing task:', error)
+    alert('Failed to complete task')
+  } finally {
+    setCompletingTask(null)
+  }
+}
 
   // If parent is viewing task manager, show that instead
   if (isParent && showTaskManager) {
@@ -198,59 +233,76 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Tasks Section */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">
-            {isChild ? "Your Tasks" : "Family Tasks"}
-          </h2>
+{/* Tasks Section */}
+<div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+  <h2 className="text-xl font-semibold text-gray-800 mb-4">
+    {isChild ? "Your Tasks" : "Family Tasks"}
+  </h2>
+  
+  <div className="space-y-3">
+    {tasks.map((task) => {
+      const isCompleted = task.completedToday || task.completed
+      
+      return (
+        <div
+          key={task.id}
+          className={`flex items-center justify-between p-4 rounded-lg border-2 transition-all ${
+            isCompleted
+              ? 'bg-green-50 border-green-200'
+              : 'bg-gray-50 border-gray-200 hover:border-purple-300'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+                isCompleted
+                  ? 'bg-green-500 border-green-500 text-white'
+                  : 'border-gray-300'
+              }`}
+            >
+              {isCompleted && <CheckCircle size={16} />}
+            </div>
+            
+            <div>
+              <h3 className={`font-medium ${
+                isCompleted ? 'text-gray-500 line-through' : 'text-gray-800'
+              }`}>
+                {task.title}
+              </h3>
+              {task.description && (
+                <p className="text-sm text-gray-600">{task.description}</p>
+              )}
+            </div>
+          </div>
           
-          <div className="space-y-3">
-            {tasks.map((task) => (
-              <div
-                key={task.id}
-                className={`flex items-center justify-between p-4 rounded-lg border-2 transition-all ${
-                  task.completed
-                    ? 'bg-green-50 border-green-200'
-                    : 'bg-gray-50 border-gray-200 hover:border-purple-300'
-                }`}
+          <div className="flex items-center gap-2">
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+              isCompleted
+                ? 'bg-green-100 text-green-700'
+                : 'bg-yellow-100 text-yellow-700'
+            }`}>
+              {task.points} pts
+            </span>
+            
+            {!isCompleted ? (
+              <button
+                onClick={() => handleCompleteTask(task.id)}
+                disabled={completingTask === task.id}
+                className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors"
               >
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => !task.completed && completeTask(task.id)}
-                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-                      task.completed
-                        ? 'bg-green-500 border-green-500 text-white'
-                        : 'border-gray-300 hover:border-purple-500'
-                    }`}
-                    disabled={task.completed}
-                  >
-                    {task.completed && <CheckCircle size={16} />}
-                  </button>
-                  <div>
-                    <h3 className={`font-medium ${
-                      task.completed ? 'text-gray-500 line-through' : 'text-gray-800'
-                    }`}>
-                      {task.title}
-                    </h3>
-                    {task.description && (
-                      <p className="text-sm text-gray-600">{task.description}</p>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    task.completed
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-yellow-100 text-yellow-700'
-                  }`}>
-                    {task.points} pts
-                  </span>
-                </div>
-              </div>
-            ))}
+                {completingTask === task.id ? 'Working...' : 'Complete'}
+              </button>
+            ) : (
+              <span className="bg-green-500 text-white px-3 py-1 rounded-lg text-sm font-medium">
+                Done!
+              </span>
+            )}
           </div>
         </div>
+      )
+    })}
+  </div>
+</div>
 
         {/* Quick Actions for Parents */}
         {isParent && (
