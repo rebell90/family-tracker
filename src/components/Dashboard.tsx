@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { Star, CheckCircle, Plus, Gift, Settings, Users } from 'lucide-react'
 import TaskManager from './TaskManager'
 import FamilyManager from './FamilyManager'
+import RewardManager from './RewardManager'
 
 interface Task {
   id: string
@@ -33,6 +34,8 @@ export default function Dashboard() {
   })
   const [showTaskManager, setShowTaskManager] = useState(false)
   const [showFamilyManager, setShowFamilyManager] = useState(false)
+  const [showRewardManager, setShowRewardManager] = useState(false)
+  const [completingTask, setCompletingTask] = useState<string | null>(null)
 
   const isParent = session?.user?.role === 'PARENT'
   const isChild = session?.user?.role === 'CHILD'
@@ -42,9 +45,6 @@ useEffect(() => {
   fetchTasks()
   fetchUserPoints()
 }, [])
-
-    // Add this state for loading
-const [completingTask, setCompletingTask] = useState<string | null>(null)
 
 // Add this function near your other functions
 const fetchTasks = async () => {
@@ -149,6 +149,26 @@ const handleCompleteTask = async (taskId: string) => {
     )
   }
 
+  // Add this view condition (after the family manager condition)
+if (showRewardManager) {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold text-gray-800">Reward Store</h1>
+          <button
+            onClick={() => setShowRewardManager(false)}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+        <RewardManager />
+      </div>
+    </div>
+  )
+}
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
       <div className="max-w-4xl mx-auto">
@@ -162,25 +182,41 @@ const handleCompleteTask = async (taskId: string) => {
               {isChild ? "Let's see what you can accomplish today!" : "Family Dashboard"}
             </p>
           </div>
-          {isParent && (
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowFamilyManager(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-              >
-                <Users size={20} />
-                Family
-              </button>
-              <button
-                onClick={() => setShowTaskManager(true)}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-              >
-                <Settings size={20} />
-                Tasks
-              </button>
-            </div>
-          )}
-        </div>
+      {isParent && (
+        <div className="flex gap-2">
+        <button
+          onClick={() => setShowFamilyManager(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+        >
+         <Users size={20} />
+          Family
+        </button>
+        <button
+        onClick={() => setShowTaskManager(true)}
+        className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+        >
+        <Settings size={20} />
+          Tasks
+        </button>
+        <button
+        onClick={() => setShowRewardManager(true)}
+        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+        >
+        <Gift size={20} />
+        Rewards
+        </button>
+      </div>
+    )}
+    {isChild && (
+  <button
+    onClick={() => setShowRewardManager(true)}
+    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+  >
+    <Gift size={20} />
+    Reward Store
+  </button>
+)}
+ </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
@@ -323,10 +359,13 @@ const handleCompleteTask = async (taskId: string) => {
                 <h3 className="font-medium text-gray-800">Manage Tasks</h3>
                 <p className="text-sm text-gray-600 mt-1">Add, edit, or remove family tasks</p>
               </button>
-              <button className="p-4 text-left rounded-lg border border-gray-200 hover:border-purple-300 transition-colors">
-                <h3 className="font-medium text-gray-800">Add New Reward</h3>
-                <p className="text-sm text-gray-600 mt-1">Create something to work towards</p>
-              </button>
+              <button 
+                onClick={() => setShowRewardManager(true)}
+                className="p-4 text-left rounded-lg border border-gray-200 hover:border-purple-300 transition-colors"
+                >
+                <h3 className="font-medium text-gray-800">Manage Rewards</h3>
+                <p className="text-sm text-gray-600 mt-1">Create and manage family rewards</p>
+                </button>
             </div>
           </div>
         )}
