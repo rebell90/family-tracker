@@ -3,12 +3,23 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+// At the top of your route file, add this interface:
+interface AuthSession {
+  user: {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    role?: string | null;
+    familyId?: string | null;
+  }
+}
+
 // POST - Invite someone to family or join existing family
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions) as AuthSession | null
     
-    if (!session?.user) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -40,31 +51,31 @@ export async function POST(request: NextRequest) {
       }
 
       // Check if user has existing tasks before joining
-  const existingTasks = await prisma.task.findMany({
-    where: { 
-      createdById: currentUser.id,
-      familyId: currentUser.familyId 
-    }
-  })
+      const existingTasks = await prisma.task.findMany({
+        where: { 
+          createdById: currentUser.id,
+          familyId: currentUser.familyId 
+        }
+      })
 
-  const oldFamilyId = currentUser.familyId
+      const oldFamilyId = currentUser.familyId
       
       await prisma.user.update({
         where: { id: currentUser.id },
         data: { familyId: targetUser.familyId }
       })
 
-    // If user has existing tasks, offer migration
-  if (existingTasks.length > 0) {
-    return NextResponse.json({ 
-      success: true,
-      familyId: targetUser.familyId,
-      oldFamilyId: oldFamilyId,
-      needsMigration: true,
-      taskCount: existingTasks.length,
-      message: `Successfully joined ${targetUser.name}'s family! You have ${existingTasks.length} existing tasks. Would you like to move them to your new family?`
-    })
-  }
+      // If user has existing tasks, offer migration
+      if (existingTasks.length > 0) {
+        return NextResponse.json({ 
+          success: true,
+          familyId: targetUser.familyId,
+          oldFamilyId: oldFamilyId,
+          needsMigration: true,
+          taskCount: existingTasks.length,
+          message: `Successfully joined ${targetUser.name}'s family! You have ${existingTasks.length} existing tasks. Would you like to move them to your new family?`
+        })
+      }
 
       return NextResponse.json({ 
         message: `Successfully joined ${targetUser.name}'s family!`,
