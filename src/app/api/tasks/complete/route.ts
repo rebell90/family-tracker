@@ -3,11 +3,21 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+interface AuthSession {
+  user: {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    role?: string | null;
+    familyId?: string | null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions) as AuthSession | null
     
-    if (!session?.user) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -50,45 +60,44 @@ export async function POST(request: NextRequest) {
     }
 
     // Create completion record
- const completion = await prisma.taskCompletion.create({
-  data: {
-    taskId: task.id,
-    userId: user.id,
-    completedAt: new Date()
-    // Remove pointsEarned and verifiedAt - they don't exist in your schema
-  }
-})
+    const completion = await prisma.taskCompletion.create({
+      data: {
+        taskId: task.id,
+        userId: user.id,
+        completedAt: new Date()
+      }
+    })
 
-// Update or create user points
-let userPoints = await prisma.userPoints.findUnique({
-  where: { userId: user.id }
-})
+    // Update or create user points
+    let userPoints = await prisma.userPoints.findUnique({
+      where: { userId: user.id }
+    })
 
-if (userPoints) {
-  userPoints = await prisma.userPoints.update({
-    where: { userId: user.id },
-    data: {
-      currentPoints: userPoints.currentPoints + task.points,
-      totalEarned: userPoints.totalEarned + task.points
+    if (userPoints) {
+      userPoints = await prisma.userPoints.update({
+        where: { userId: user.id },
+        data: {
+          currentPoints: userPoints.currentPoints + task.points,
+          totalEarned: userPoints.totalEarned + task.points
+        }
+      })
+    } else {
+      userPoints = await prisma.userPoints.create({
+        data: {
+          userId: user.id,
+          currentPoints: task.points,
+          totalEarned: task.points
+        }
+      })
     }
-  })
-} else {
-  userPoints = await prisma.userPoints.create({
-    data: {
-      userId: user.id,
-      currentPoints: task.points,
-      totalEarned: task.points
-    }
-  })
-}
 
-return NextResponse.json({
-  success: true,
-  completion,
-  pointsEarned: task.points,
-  newPointsTotal: userPoints.currentPoints,
-  message: `Great job! You earned ${task.points} points!`
-})
+    return NextResponse.json({
+      success: true,
+      completion,
+      pointsEarned: task.points,
+      newPointsTotal: userPoints.currentPoints,
+      message: `Great job! You earned ${task.points} points!`
+    })
 
   } catch (error) {
     console.error('Task completion error:', error)

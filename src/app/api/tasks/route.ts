@@ -3,15 +3,25 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+interface AuthSession {
+  user: {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    role?: string | null;
+    familyId?: string | null;
+  }
+}
+
 // GET - List all tasks for the family
 export async function GET(request: NextRequest) {
   try {
     console.log('GET /api/tasks - Starting request')
     
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions) as AuthSession | null
     console.log('Session:', session?.user?.id, session?.user?.role)
     
-    if (!session?.user) {
+    if (!session?.user?.id) {
       console.log('No session found')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -51,29 +61,28 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' }
     })
 
-    
     // Transform tasks to include completion status
-const tasksWithCompletionStatus = tasks.map(task => {
-  const completedToday = task.completions.length > 0
-  
-  return {
-    id: task.id,
-    title: task.title,
-    description: task.description,
-    points: task.points,
-    category: task.category,
-    assignedTo: task.assignedTo,
-    createdBy: task.createdBy,
-    completed: completedToday, // For backwards compatibility
-    completedToday: completedToday,
-    isRecurring: task.isRecurring,
-    daysOfWeek: task.daysOfWeek,
-    timePeriod: task.timePeriod
-  }
-})
+    const tasksWithCompletionStatus = tasks.map(task => {
+      const completedToday = task.completions.length > 0
+      
+      return {
+        id: task.id,
+        title: task.title,
+        description: task.description,
+        points: task.points,
+        category: task.category,
+        assignedTo: task.assignedTo,
+        createdBy: task.createdBy,
+        completed: completedToday, // For backwards compatibility
+        completedToday: completedToday,
+        isRecurring: task.isRecurring,
+        daysOfWeek: task.daysOfWeek,
+        timePeriod: task.timePeriod
+      }
+    })
 
-console.log('Found tasks:', tasksWithCompletionStatus.length)
-return NextResponse.json({ tasks: tasksWithCompletionStatus })
+    console.log('Found tasks:', tasksWithCompletionStatus.length)
+    return NextResponse.json({ tasks: tasksWithCompletionStatus })
   } catch (error) {
     console.error('Error in GET /api/tasks:', error)
     return NextResponse.json({ error: 'Failed to fetch tasks' }, { status: 500 })
@@ -85,10 +94,10 @@ export async function POST(request: NextRequest) {
   try {
     console.log('POST /api/tasks - Starting request')
     
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions) as AuthSession | null
     console.log('Session:', session?.user?.id, session?.user?.role)
     
-    if (!session?.user) {
+    if (!session?.user?.id) {
       console.log('No session found')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }

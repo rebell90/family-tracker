@@ -3,6 +3,16 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+interface AuthSession {
+  user: {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    role?: string | null;
+    familyId?: string | null;
+  }
+}
+
 // PUT - Update a task
 export async function PUT(
   request: NextRequest,
@@ -12,10 +22,10 @@ export async function PUT(
     const { id } = await params
     console.log('PUT /api/tasks/[id] - Starting request for task:', id)
     
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions) as AuthSession | null
     console.log('Session:', session?.user?.id, session?.user?.role)
     
-    if (!session?.user) {
+    if (!session?.user?.id) {
       console.log('No session found')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -55,7 +65,7 @@ export async function PUT(
         title,
         description,
         points: parseInt(points) || 1,
-        category: category || 'CHORES',  // ← Added category field
+        category: category || 'CHORES',
         assignedToId: assignedToId || null,
         isRecurring: isRecurring || false,
         daysOfWeek: daysOfWeek || [],
@@ -86,10 +96,10 @@ export async function DELETE(
     const { id } = await params
     console.log('DELETE /api/tasks/[id] - Starting request for task:', id)
     
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions) as AuthSession | null
     console.log('Session:', session?.user?.id, session?.user?.role)
     
-    if (!session?.user) {
+    if (!session?.user?.id) {
       console.log('No session found')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
