@@ -62,10 +62,10 @@ export default function FamilyManager() {
       } else {
         setError(data.error)
       }
-    } .catch((error) => {
+    } catch (error) {
       console.error('Error:', error);
       setError('Failed to send invite')
-    })
+    }
   }
 
 const handleJoin = async (e: React.FormEvent) => {
@@ -103,7 +103,7 @@ const handleJoin = async (e: React.FormEvent) => {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                oldFamilyId: data.oldFamilyId,  // ← CHANGED: Use data.oldFamilyId
+                oldFamilyId: data.oldFamilyId,
                 newFamilyId: data.familyId
               })
             })
@@ -139,10 +139,10 @@ const handleJoin = async (e: React.FormEvent) => {
     } else {
       setError(data.error)
     }
-  } .catch((error) => {
+  } catch (error) {
     console.error('Error:', error);
     setError('Failed to join family')
-  })
+  }
 }
 
   return (
@@ -238,7 +238,6 @@ const handleJoin = async (e: React.FormEvent) => {
               value={joinEmail}
               onChange={(e) => setJoinEmail(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white placeholder-gray-500"
-              placeholder="Enter email of family member to join their family"
             />
           </div>
           <button
