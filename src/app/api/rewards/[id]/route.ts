@@ -3,15 +3,25 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+interface AuthSession {
+  user: {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    role?: string | null;
+    familyId?: string | null;
+  }
+}
+
 // PATCH - Update reward
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions) as AuthSession | null
     
-    if (!session?.user) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -23,12 +33,13 @@ export async function PATCH(
       return NextResponse.json({ error: 'Only parents can edit rewards' }, { status: 403 })
     }
 
+    const { id } = await params
     const { title, description, pointsRequired } = await request.json()
 
     const reward = await prisma.reward.update({
       where: { 
         id: id,
-        familyId: user.familyId // Ensure user can only edit their family's rewards
+        familyId: user.familyId || undefined
       },
       data: {
         title,
@@ -55,9 +66,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions) as AuthSession | null
     
-    if (!session?.user) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -69,13 +80,15 @@ export async function DELETE(
       return NextResponse.json({ error: 'Only parents can delete rewards' }, { status: 403 })
     }
 
+    const { id } = await params
+
     await prisma.reward.update({
       where: { 
         id: id,
-        familyId: user.familyId // Ensure user can only delete their family's rewards
+        familyId: user.familyId || undefined
       },
       data: {
-        isActive: false // Soft delete
+        isActive: false
       }
     })
 
