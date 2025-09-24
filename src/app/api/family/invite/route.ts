@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       const existingTasks = await prisma.task.findMany({
         where: { 
           createdById: currentUser.id,
-          familyId: currentUser.familyId 
+          familyId: currentUser.familyId || undefined
         }
       })
 
