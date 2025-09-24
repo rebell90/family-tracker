@@ -6,7 +6,7 @@ import { prisma } from '@/lib/prisma'
 // PATCH - Update reward
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -27,7 +27,7 @@ export async function PATCH(
 
     const reward = await prisma.reward.update({
       where: { 
-        id: params.id,
+        id: id,
         familyId: user.familyId // Ensure user can only edit their family's rewards
       },
       data: {
@@ -52,7 +52,7 @@ export async function PATCH(
 // DELETE - Delete reward
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -71,7 +71,7 @@ export async function DELETE(
 
     await prisma.reward.update({
       where: { 
-        id: params.id,
+        id: id,
         familyId: user.familyId // Ensure user can only delete their family's rewards
       },
       data: {
