@@ -4,10 +4,36 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { Gift, Plus, Star, Check, X, Edit2, Trash2 } from 'lucide-react'
 
+// Define interfaces at the top
+interface Reward {
+  id: string;
+  title: string;
+  description?: string;
+  pointsRequired: number;
+  createdBy: {
+    name: string;
+  };
+  redemptions: Redemption[];
+}
+
+interface Redemption {
+  id: string;
+  rewardId: string;
+  userId: string;
+  status: 'pending' | 'approved' | 'denied';
+  requestedAt: string;
+  user: {
+    name: string;
+  };
+  reward: Reward;
+}
+
 export default function RewardManager() {
   const { data: session } = useSession()
   const [rewards, setRewards] = useState<Reward[]>([])
+  const [myRedemptions, setMyRedemptions] = useState<Redemption[]>([])
   const [showCreateForm, setShowCreateForm] = useState(false)
+  const [editingReward, setEditingReward] = useState<Reward | null>(null)
   const [newReward, setNewReward] = useState({
     title: '',
     description: '',
@@ -15,17 +41,15 @@ export default function RewardManager() {
   })
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
-  const [editingReward, setEditingReward] = useState<any>(null)
-  const [myRedemptions, setMyRedemptions] = useState<any[]>([])
 
   const isParent = session?.user?.role === 'PARENT'
 
-useEffect(() => {
-  fetchRewards()
-  if (!isParent) {
-    fetchMyRedemptions()
-  }
-}, [])
+  useEffect(() => {
+    fetchRewards()
+    if (!isParent) {
+      fetchMyRedemptions()
+    }
+  }, [isParent]) // Added isParent to dependency array
 
   const fetchRewards = async () => {
     try {
@@ -40,16 +64,16 @@ useEffect(() => {
   }
 
   const fetchMyRedemptions = async () => {
-  try {
-    const response = await fetch('/api/rewards/my-redemptions')
-    if (response.ok) {
-      const data = await response.json()
-      setMyRedemptions(data.redemptions || [])
+    try {
+      const response = await fetch('/api/rewards/my-redemptions')
+      if (response.ok) {
+        const data = await response.json()
+        setMyRedemptions(data.redemptions || [])
+      }
+    } catch (error) {
+      console.error('Error fetching redemptions:', error)
     }
-  } catch (error) {
-    console.error('Error fetching redemptions:', error)
   }
-}
 
   const handleCreateReward = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -76,6 +100,7 @@ useEffect(() => {
         setMessage(data.error || 'Failed to create reward')
       }
     } catch (error) {
+      console.error('Error creating reward:', error)
       setMessage('Failed to create reward')
     } finally {
       setLoading(false)
@@ -97,11 +122,12 @@ useEffect(() => {
         setMessage('Failed to delete reward')
       }
     } catch (error) {
+      console.error('Error deleting reward:', error)
       setMessage('Failed to delete reward')
     }
   }
 
-  const startEditReward = (reward: any) => {
+  const startEditReward = (reward: Reward) => {
     setEditingReward(reward)
     setNewReward({
       title: reward.title,
@@ -139,6 +165,7 @@ useEffect(() => {
         setMessage(data.error || 'Failed to update reward')
       }
     } catch (error) {
+      console.error('Error updating reward:', error)
       setMessage('Failed to update reward')
     } finally {
       setLoading(false)
@@ -151,57 +178,58 @@ useEffect(() => {
     setShowCreateForm(false)
   }
 
-const handleRedeemReward = async (rewardId: string, pointsRequired: number) => {
-  try {
-    const response = await fetch('/api/rewards/redeem', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ rewardId }),
-    })
+  const handleRedeemReward = async (rewardId: string) => {
+    try {
+      const response = await fetch('/api/rewards/redeem', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ rewardId }),
+      })
 
-    const data = await response.json()
+      const data = await response.json()
 
-    if (response.ok) {
-      setMessage(data.message)
-      fetchRewards()
+      if (response.ok) {
+        setMessage(data.message)
+        fetchRewards()
+        
+        // Trigger a page refresh to update points display
+        setTimeout(() => {
+          window.location.reload()
+        }, 1500)
+      } else {
+        setMessage(data.error)
+      }
+    } catch (error) {
+      console.error('Error redeeming reward:', error)
+      setMessage('Failed to redeem reward')
+    }
+  }
+
+  const handleApproval = async (redemptionId: string, approve: boolean) => {
+    try {
+      const response = await fetch('/api/rewards/approve', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ redemptionId, approve }),
+      })
+
+      const data = await response.json()
       
-      // Trigger a page refresh to update points display
-      setTimeout(() => {
-        window.location.reload()
-      }, 1500)
-    } else {
-      setMessage(data.error)
+      if (response.ok) {
+        setMessage(data.message)
+        fetchRewards()
+      } else {
+        setMessage(data.error)
+      }
+    } catch (error) {
+      console.error('Error processing approval:', error)
+      setMessage('Failed to process approval')
     }
-  } catch (error) {
-    setMessage('Failed to redeem reward')
   }
-}
-
-
-const handleApproval = async (redemptionId: string, approve: boolean) => {
-  try {
-    const response = await fetch('/api/rewards/approve', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ redemptionId, approve }),
-    })
-
-    const data = await response.json()
-    
-    if (response.ok) {
-      setMessage(data.message)
-      fetchRewards()
-    } else {
-      setMessage(data.error)
-    }
-  } catch (error) {
-    setMessage('Failed to process approval')
-  }
-}
 
   return (
     <div className="space-y-6">
@@ -378,7 +406,7 @@ const handleApproval = async (redemptionId: string, approve: boolean) => {
             {/* Redeem Button (Children only) */}
             {!isParent && (
               <button 
-                onClick={() => handleRedeemReward(reward.id, reward.pointsRequired)}
+                onClick={() => handleRedeemReward(reward.id)}
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
               >
                 Redeem for {reward.pointsRequired} points

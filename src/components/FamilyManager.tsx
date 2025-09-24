@@ -12,7 +12,8 @@ interface FamilyMember {
 }
 
 export default function FamilyManager() {
-  const { data: session } = useSession()
+  const { data: session } = useSession();
+  console.log(session); 
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([])
   const [inviteEmail, setInviteEmail] = useState('')
   const [joinEmail, setJoinEmail] = useState('')
@@ -61,9 +62,10 @@ export default function FamilyManager() {
       } else {
         setError(data.error)
       }
-    } catch (error) {
+    } .catch((error) => {
+      console.error('Error:', error);
       setError('Failed to send invite')
-    }
+    })
   }
 
 const handleJoin = async (e: React.FormEvent) => {
@@ -137,9 +139,10 @@ const handleJoin = async (e: React.FormEvent) => {
     } else {
       setError(data.error)
     }
-  } catch (error) {
+  } .catch((error) => {
+    console.error('Error:', error);
     setError('Failed to join family')
-  }
+  })
 }
 
   return (
@@ -224,7 +227,7 @@ const handleJoin = async (e: React.FormEvent) => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
           <Users size={20} />
-          Join Someone's Family
+          Join Someone&apos;s Family
         </h3>
         
         <form onSubmit={handleJoin} className="flex gap-4">
