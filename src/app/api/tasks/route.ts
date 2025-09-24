@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' }
     })
 
+    
     // Transform tasks to include completion status
 const tasksWithCompletionStatus = tasks.map(task => {
   const completedToday = task.completions.length > 0
@@ -66,7 +67,8 @@ const tasksWithCompletionStatus = tasks.map(task => {
     completed: completedToday, // For backwards compatibility
     completedToday: completedToday,
     isRecurring: task.isRecurring,
-    daysOfWeek: task.daysOfWeek
+    daysOfWeek: task.daysOfWeek,
+    timePeriod: task.timePeriod
   }
 })
 
@@ -106,7 +108,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     console.log('Request body:', body)
     
-    const { title, description, points, category, assignedToId, isRecurring, daysOfWeek } = body
+    const { title, description, points, category, assignedToId, isRecurring, daysOfWeek, timePeriod } = body
 
     // Create family if it doesn't exist
     let familyId = user.familyId
@@ -139,7 +141,8 @@ export async function POST(request: NextRequest) {
         createdById: user.id,
         familyId,
         isRecurring: isRecurring || false,
-        daysOfWeek: daysOfWeek || []
+        daysOfWeek: daysOfWeek || [],
+        timePeriod: timePeriod || 'ANYTIME'
       },
       include: {
         assignedTo: {

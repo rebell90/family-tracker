@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { Plus, Edit, Trash2, Save, X, User } from 'lucide-react'
+import { Plus, Edit, Trash2, Save, X, User, Clock, Calendar } from 'lucide-react'
 import { TASK_CATEGORIES, getCategoryInfo, type TaskCategory } from '@/lib/categories'
 
 interface Task {
@@ -22,6 +22,7 @@ interface Task {
   }
   isRecurring: boolean
   daysOfWeek: string[]
+  timePeriod?: string
   isActive: boolean
 }
 
@@ -31,6 +32,23 @@ interface FamilyMember {
   email: string
   role: string
 }
+
+const TIME_PERIODS = {
+  MORNING: { label: 'Morning (6 AM - 12 PM)', icon: '🌅' },
+  AFTERNOON: { label: 'Afternoon (12 PM - 6 PM)', icon: '☀️' },
+  EVENING: { label: 'Evening (6 PM - 10 PM)', icon: '🌙' },
+  ANYTIME: { label: 'Anytime', icon: '⏰' }
+}
+
+const DAYS_OF_WEEK = [
+  { value: 'MONDAY', label: 'Mon' },
+  { value: 'TUESDAY', label: 'Tue' },
+  { value: 'WEDNESDAY', label: 'Wed' },
+  { value: 'THURSDAY', label: 'Thu' },
+  { value: 'FRIDAY', label: 'Fri' },
+  { value: 'SATURDAY', label: 'Sat' },
+  { value: 'SUNDAY', label: 'Sun' }
+]
 
 export default function TaskManager() {
   const { data: session } = useSession()
@@ -46,7 +64,8 @@ export default function TaskManager() {
     category: 'CHORES' as TaskCategory,
     assignedToId: '',
     isRecurring: false,
-    daysOfWeek: []
+    daysOfWeek: [] as string[],
+    timePeriod: 'ANYTIME'
   })
 
   const isParent = session?.user?.role === 'PARENT'
@@ -86,6 +105,15 @@ export default function TaskManager() {
     } catch (error) {
       console.error('Error fetching family members:', error)
     }
+  }
+
+  const handleDayToggle = (day: string) => {
+    setFormData(prev => ({
+      ...prev,
+      daysOfWeek: prev.daysOfWeek.includes(day)
+        ? prev.daysOfWeek.filter(d => d !== day)
+        : [...prev.daysOfWeek, day]
+    }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -161,7 +189,8 @@ export default function TaskManager() {
       category: task.category,
       assignedToId: task.assignedTo?.id || '',
       isRecurring: task.isRecurring,
-      daysOfWeek: task.daysOfWeek
+      daysOfWeek: task.daysOfWeek,
+      timePeriod: task.timePeriod || 'ANYTIME'
     })
     setShowAddForm(true)
     setError('')
@@ -175,7 +204,8 @@ export default function TaskManager() {
       category: 'CHORES',
       assignedToId: '',
       isRecurring: false,
-      daysOfWeek: []
+      daysOfWeek: [],
+      timePeriod: 'ANYTIME'
     })
     setShowAddForm(false)
     setEditingTask(null)
@@ -204,19 +234,21 @@ export default function TaskManager() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+  {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Manage Tasks</h2>
           <p className="text-sm text-gray-600">Family Members: {familyMembers.map(m => m.name).join(', ')}</p>
         </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-        >
-          <Plus size={20} />
-          Add Task
-        </button>
+            {!showAddForm && ( // Add this condition
+            <button
+            onClick={() => setShowAddForm(true)}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+            >
+              <Plus size={20} />
+              Add Task
+            </button>
+          )}
       </div>
 
       {/* Add/Edit Form */}
@@ -233,6 +265,7 @@ export default function TaskManager() {
           )}
           
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Basic Info */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -279,6 +312,7 @@ export default function TaskManager() {
               </div>
             </div>
 
+            {/* Assignment and Description */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -310,6 +344,86 @@ export default function TaskManager() {
                   placeholder="Optional description..."
                 />
               </div>
+            </div>
+
+            {/* Scheduling Section */}
+            <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+              <h4 className="font-medium text-gray-800 flex items-center gap-2">
+                <Calendar size={16} />
+                Task Schedule
+              </h4>
+
+              {/* Time Period */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  When should this task be done?
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {Object.entries(TIME_PERIODS).map(([key, period]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, timePeriod: key }))}
+                      className={`p-3 text-sm rounded-lg border-2 transition-colors ${
+                        formData.timePeriod === key
+                          ? 'border-purple-500 bg-purple-50 text-purple-700'
+                          : 'border-gray-200 bg-white text-gray-600 hover:border-purple-300'
+                      }`}
+                    >
+                      <div className="text-lg mb-1">{period.icon}</div>
+                      <div className="font-medium">{key.charAt(0) + key.slice(1).toLowerCase()}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Recurring Toggle */}
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="recurring"
+                  checked={formData.isRecurring}
+                  onChange={(e) => setFormData(prev => ({ 
+                    ...prev, 
+                    isRecurring: e.target.checked,
+                    daysOfWeek: e.target.checked ? prev.daysOfWeek : []
+                  }))}
+                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                />
+                <label htmlFor="recurring" className="text-sm font-medium text-gray-700">
+                  Make this a recurring task
+                </label>
+              </div>
+
+              {/* Days Selection (only show if recurring) */}
+              {formData.isRecurring && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Which days?
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {DAYS_OF_WEEK.map(({ value, label }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => handleDayToggle(value)}
+                        className={`px-3 py-2 text-sm rounded-lg border-2 transition-colors ${
+                          formData.daysOfWeek.includes(value)
+                            ? 'border-purple-500 bg-purple-50 text-purple-700'
+                            : 'border-gray-200 bg-white text-gray-600 hover:border-purple-300'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {formData.isRecurring && formData.daysOfWeek.length === 0 && (
+                    <p className="text-sm text-orange-600 mt-1">
+                      Select at least one day for recurring tasks
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex gap-4">
@@ -361,6 +475,12 @@ export default function TaskManager() {
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${categoryInfo.color}`}>
                           {categoryInfo.icon} {categoryInfo.label}
                         </span>
+                        {task.timePeriod && task.timePeriod !== 'ANYTIME' && (
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 flex items-center gap-1">
+                            <Clock size={10} />
+                            {TIME_PERIODS[task.timePeriod as keyof typeof TIME_PERIODS]?.icon} {task.timePeriod.charAt(0) + task.timePeriod.slice(1).toLowerCase()}
+                          </span>
+                        )}
                       </div>
                       {task.description && (
                         <p className="text-sm text-gray-600 mt-1">{task.description}</p>
@@ -373,6 +493,12 @@ export default function TaskManager() {
                           <span className="text-blue-600 flex items-center gap-1">
                             <User size={12} />
                             For: {task.assignedTo.name}
+                          </span>
+                        )}
+                        {task.isRecurring && task.daysOfWeek.length > 0 && (
+                          <span className="text-green-600 flex items-center gap-1">
+                            <Calendar size={12} />
+                            {task.daysOfWeek.map(day => day.slice(0, 3)).join(', ')}
                           </span>
                         )}
                         {task.createdBy && (

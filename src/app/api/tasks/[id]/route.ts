@@ -6,10 +6,11 @@ import { prisma } from '@/lib/prisma'
 // PUT - Update a task
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    console.log('PUT /api/tasks/[id] - Starting request for task:', params.id)
+    const { id } = await params
+    console.log('PUT /api/tasks/[id] - Starting request for task:', id)
     
     const session = await getServerSession(authOptions)
     console.log('Session:', session?.user?.id, session?.user?.role)
@@ -33,23 +34,23 @@ export async function PUT(
     const body = await request.json()
     console.log('Update request body:', body)
 
-    const { title, description, points, category, assignedToId, isRecurring, daysOfWeek, isActive } = body
+    const { title, description, points, category, assignedToId, isRecurring, daysOfWeek, timePeriod, isActive } = body
 
     // Check if task exists and belongs to user's family
     const existingTask = await prisma.task.findUnique({
-      where: { id: params.id },
+      where: { id: id },
       include: { family: true }
     })
 
     if (!existingTask) {
-      console.log('Task not found:', params.id)
+      console.log('Task not found:', id)
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
 
     console.log('Existing task found, updating with category:', category)
 
     const task = await prisma.task.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         title,
         description,
@@ -58,6 +59,7 @@ export async function PUT(
         assignedToId: assignedToId || null,
         isRecurring: isRecurring || false,
         daysOfWeek: daysOfWeek || [],
+        timePeriod: timePeriod || 'ANYTIME',
         isActive: isActive !== undefined ? isActive : true
       },
       include: {
@@ -78,10 +80,11 @@ export async function PUT(
 // DELETE - Delete a task
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    console.log('DELETE /api/tasks/[id] - Starting request for task:', params.id)
+    const { id } = await params
+    console.log('DELETE /api/tasks/[id] - Starting request for task:', id)
     
     const session = await getServerSession(authOptions)
     console.log('Session:', session?.user?.id, session?.user?.role)
@@ -104,11 +107,11 @@ export async function DELETE(
 
     // Check if task exists
     const existingTask = await prisma.task.findUnique({
-      where: { id: params.id }
+      where: { id: id }
     })
 
     if (!existingTask) {
-      console.log('Task not found:', params.id)
+      console.log('Task not found:', id)
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
 
@@ -116,7 +119,7 @@ export async function DELETE(
 
     // Soft delete by setting isActive to false
     await prisma.task.update({
-      where: { id: params.id },
+      where: { id: id },
       data: { isActive: false }
     })
 

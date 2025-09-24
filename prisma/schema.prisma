@@ -90,6 +90,7 @@ model Task {
   category    TaskCategory @default(CHORES)
   isRecurring Boolean      @default(false)
   daysOfWeek  String[]
+  timePeriod  String?      @default("ANYTIME")
   createdById String
   assignedToId String?
   familyId    String
