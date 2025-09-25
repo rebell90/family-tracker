@@ -9,6 +9,8 @@ export default function AppHeader() {
 
   if (!session) return null
 
+  const user = session.user as { name?: string; role?: string } | undefined
+
   return (
     <header className="bg-white shadow-sm border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -25,9 +27,9 @@ export default function AppHeader() {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 text-gray-600">
               <User size={16} />
-              <span className="font-medium">{session.user?.name}</span>
+              <span className="font-medium">{user?.name}</span>
               <span className="text-sm text-gray-400">
-                ({session.user?.role === 'PARENT' ? '👨‍👩‍👧‍👦 Parent' : '🧒 Child'})
+                ({user?.role === 'PARENT' ? '👨‍👩‍👧‍👦 Parent' : '🧒 Child'})
               </span>
             </div>
             
