@@ -7,12 +7,12 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     
-    if (!session?.user) {
+    if (!session?.user || !('id' in session.user)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const redemptions = await prisma.rewardRedemption.findMany({
-      where: { userId: session.user.id },
+      where: { userId: (session.user as { id: string }).id },
       include: {
         reward: {
           select: {
