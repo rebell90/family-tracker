@@ -3,27 +3,17 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
-interface AuthSession {
-  user: {
-    id: string;
-    name?: string | null;
-    email?: string | null;
-    role?: string | null;
-    familyId?: string | null;
-  }
-}
-
 // GET - List family rewards
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions) as AuthSession | null
+    const session = await getServerSession(authOptions)
     
-    if (!session?.user?.id) {
+    if (!session?.user || !('id' in session.user)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: (session.user as { id: string }).id },
       include: { family: true }
     })
 
@@ -62,14 +52,14 @@ export async function GET(request: NextRequest) {
 // POST - Create new reward (parents only)
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions) as AuthSession | null
+    const session = await getServerSession(authOptions)
     
-    if (!session?.user?.id) {
+    if (!session?.user || !('id' in session.user)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id }
+      where: { id: (session.user as { id: string }).id }
     })
 
     if (user?.role !== 'PARENT') {
