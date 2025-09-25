@@ -68,7 +68,8 @@ export default function TaskManager() {
     timePeriod: 'ANYTIME'
   })
 
-  const isParent = session?.user?.role === 'PARENT'
+const user = session?.user as { name?: string; role?: string } | undefined
+const isParent = user?.role === 'PARENT'
 
   useEffect(() => {
     if (isParent) {
