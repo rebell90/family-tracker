@@ -93,6 +93,14 @@ export default function Dashboard() {
 const user = session?.user as { name?: string; role?: string } | undefined
 const isParent = user?.role === 'PARENT'
 const isChild = user?.role === 'CHILD'
+// Add this right after your isParent declaration
+console.log('Debug info:', {
+  session: session,
+  user: user,
+  userRole: user?.role,
+  isParent: isParent,
+  showFamilyManager: showFamilyManager
+});
 
   useEffect(() => {
     fetchTasks()
