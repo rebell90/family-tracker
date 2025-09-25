@@ -42,7 +42,8 @@ export default function RewardManager() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
 
-  const isParent = session?.user?.role === 'PARENT'
+const user = session?.user as { name?: string; role?: string } | undefined
+const isParent = user?.role === 'PARENT'
 
   useEffect(() => {
     fetchRewards()
