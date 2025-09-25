@@ -2,20 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { AuthenticatedSession, isAuthenticatedSession } from '@/lib/auth-types'
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     
-    if (!isAuthenticatedSession(session)) {
+    if (!session?.user || !('id' in session.user)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { redemptionId, approve } = await request.json()
 
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id }
+      where: { id: (session.user as any).id }
     })
 
     if (user?.role !== 'PARENT') {
