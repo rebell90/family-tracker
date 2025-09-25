@@ -90,8 +90,9 @@ export default function Dashboard() {
   const [showRewardManager, setShowRewardManager] = useState(false)
   const [completingTask, setCompletingTask] = useState<string | null>(null)
 
-  const isParent = session?.user?.role === 'PARENT'
-  const isChild = session?.user?.role === 'CHILD'
+const user = session?.user as { name?: string; role?: string } | undefined
+const isParent = user?.role === 'PARENT'
+const isChild = user?.role === 'CHILD'
 
   useEffect(() => {
     fetchTasks()
