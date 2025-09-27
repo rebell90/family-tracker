@@ -34,7 +34,7 @@ export default function AppHeader() {
             </div>
             
 <button
-  onClick={() => signOut()}
+  onClick={() => signOut({ callbackUrl: window.location.origin + '/auth/signin' })}
   className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm transition-colors"
 >
   <LogOut size={16} />
