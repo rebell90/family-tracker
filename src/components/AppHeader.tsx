@@ -33,13 +33,13 @@ export default function AppHeader() {
               </span>
             </div>
             
-            <button
-            onClick={() => signOut({ callbackUrl: '/auth/signin', redirect: true })}
-            className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm transition-colors"
-            >
-            <LogOut size={16} />
-              Logout
-            </button>
+<button
+  onClick={() => signOut()}
+  className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm transition-colors"
+>
+  <LogOut size={16} />
+  Logout
+</button>
           </div>
         </div>
       </div>
