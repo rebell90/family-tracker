@@ -6,6 +6,7 @@ import { Star, CheckCircle, Plus, Gift, Settings, Users, Clock, Sun, Sunset, Moo
 import TaskManager from './TaskManager'
 import FamilyManager from './FamilyManager'
 import RewardManager from './RewardManager'
+import CatchUpManager from './CatchUpManager'
 
 interface Task {
   id: string
@@ -88,6 +89,7 @@ export default function Dashboard() {
   const [showTaskManager, setShowTaskManager] = useState(false)
   const [showFamilyManager, setShowFamilyManager] = useState(false)
   const [showRewardManager, setShowRewardManager] = useState(false)
+  const [showCatchUpManager, setShowCatchUpManager] = useState(false)
   const [completingTask, setCompletingTask] = useState<string | null>(null)
 
 const user = session?.user as { name?: string; role?: string } | undefined
@@ -265,6 +267,24 @@ console.log('Debug info:', {
       </div>
     )
   }
+  if (showCatchUpManager) {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold text-gray-800">Catch Up Tasks</h1>
+          <button
+            onClick={() => setShowCatchUpManager(false)}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+        <CatchUpManager />
+      </div>
+    </div>
+  )
+}
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
@@ -305,6 +325,14 @@ console.log('Debug info:', {
             </div>
           )}
           {isChild && (
+            <div className="flex gap-2">
+            <button
+                onClick={() => setShowCatchUp(true)}
+                className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+              >
+              <Clock size={20} />
+                Catch Up
+            </button>
             <button
               onClick={() => setShowRewardManager(true)}
               className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
@@ -312,6 +340,7 @@ console.log('Debug info:', {
               <Gift size={20} />
               Reward Store
             </button>
+            </div>
           )}
         </div>
 
