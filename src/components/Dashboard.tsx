@@ -327,7 +327,7 @@ console.log('Debug info:', {
           {isChild && (
             <div className="flex gap-2">
             <button
-                onClick={() => setShowCatchUp(true)}
+                onClick={() => setShowCatchUpManager(true)}
                 className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
               >
               <Clock size={20} />
