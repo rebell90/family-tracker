@@ -1,14 +1,14 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import { SessionProvider } from 'next-auth/react'
 import AppHeader from '@/components/AppHeader'
+import Providers from '@/components/Providers'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'Family Tracker',
-  description: 'A family task and reward management app',
+  description: 'Family responsibility and reward tracking app',
 }
 
 export default function RootLayout({
@@ -19,10 +19,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <SessionProvider>
+        <Providers>
           <AppHeader />
           {children}
-        </SessionProvider>
+        </Providers>
       </body>
     </html>
   )
