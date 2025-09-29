@@ -175,6 +175,23 @@ console.log('Debug info:', {
     return 'ANYTIME'
   }
 
+    const getYesterdaysMissedTasks = () => {
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  const dayOfWeek = yesterday.getDay()
+  const dayName = Object.keys(DAYS_MAP)[Object.values(DAYS_MAP).indexOf(dayOfWeek)]
+
+  return tasks.filter(task => {
+    // Only show incomplete tasks
+    if (task.completedToday || task.completed) return false
+    
+    // Check if task was scheduled for yesterday
+    if (!task.isRecurring) return true
+    if (task.daysOfWeek.length === 0) return true
+    return task.daysOfWeek.includes(dayName)
+  })
+}
+
   // Filter tasks for today
   const getTasksForToday = () => {
     const today = new Date().getDay() // 0 = Sunday, 1 = Monday, etc.
@@ -206,6 +223,7 @@ console.log('Debug info:', {
     }, {} as Record<string, Task[]>)
   }
 
+  const yesterdaysMissed = getYesterdaysMissedTasks()
   const todaysTasks = getTasksForToday()
   const tasksByPeriod = groupTasksByTimePeriod(todaysTasks)
   const currentPeriod = getCurrentTimePeriod()
@@ -388,6 +406,37 @@ console.log('Debug info:', {
             </div>
           </div>
         </div>
+
+        {/* Yesterday's Missed Tasks */}    
+        {yesterdaysMissed.length > 0 && (
+          <div className="mb-6 bg-orange-50 border-2 border-orange-200 rounded-xl p-4">
+           <h3 className="text-lg font-semibold text-orange-800 mb-3">
+              Yesterday's Incomplete Tasks ({yesterdaysMissed.length})
+           </h3>
+              <div className="space-y-2">
+                {yesterdaysMissed.map(task => (
+                  <div key={task.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-orange-200">
+                  <div>
+                 <h4 className="font-medium text-gray-800">{task.title}</h4>
+                {task.description && <p className="text-sm text-gray-600">{task.description}</p>}
+              </div>
+              <div className="flex items-center gap-2">
+              <span className="px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-700">
+                {task.points} pts
+             </span>
+              <button
+               onClick={() => handleCompleteTask(task.id)}
+               disabled={completingTask === task.id}
+               className="bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white px-3 py-1 rounded-lg text-sm font-medium"
+              >
+                {completingTask === task.id ? 'Working...' : 'Complete Now'}
+              </button>
+              </div>
+            </div>
+          ))}
+          </div>
+       </div>
+    )}
 
         {/* Today's Schedule */}
         <div className="space-y-6">
