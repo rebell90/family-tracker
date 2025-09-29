@@ -411,7 +411,7 @@ console.log('Debug info:', {
         {yesterdaysMissed.length > 0 && (
           <div className="mb-6 bg-orange-50 border-2 border-orange-200 rounded-xl p-4">
            <h3 className="text-lg font-semibold text-orange-800 mb-3">
-              Yesterday's Incomplete Tasks ({yesterdaysMissed.length})
+              Yesterday&apos;s Incomplete Tasks ({yesterdaysMissed.length})
            </h3>
               <div className="space-y-2">
                 {yesterdaysMissed.map(task => (
