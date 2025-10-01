@@ -494,34 +494,33 @@ console.log('Debug info:', {
                 </div>
 
                 {/* Tasks */}
+
                 <div className="p-4 space-y-3">
                   {periodTasks.map((task) => {
                     const isCompleted = task.completedToday || task.completed
-                    
+
                     return (
                       <div
                         key={task.id}
-                        className={`flex items-center justify-between p-4 rounded-lg border-2 transition-all ${
-                          isCompleted
-                            ? 'bg-green-50 border-green-200'
-                            : 'bg-gray-50 border-gray-200 hover:border-purple-300'
-                        }`}
+                        onClick={() => !isCompleted && handleCompleteTask(task.id)}
+                        className={`flex items-center justify-between p-4 rounded-lg border-2 transition-all cursor-pointer ${isCompleted
+                          ? 'bg-green-50 border-green-200'
+                          : 'bg-gray-50 border-gray-200 hover:border-purple-400 hover:shadow-md'
+                          }`}
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-1">
                           <div
-                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-                              isCompleted
-                                ? 'bg-green-500 border-green-500 text-white'
-                                : 'border-gray-300'
-                            }`}
+                            className={`w-8 h-8 rounded-full border-3 flex items-center justify-center transition-colors ${isCompleted
+                              ? 'bg-green-500 border-green-500 text-white'
+                              : 'border-purple-400 hover:bg-purple-50'
+                              }`}
                           >
-                            {isCompleted && <CheckCircle size={16} />}
+                            {isCompleted && <CheckCircle size={20} />}
                           </div>
-                          
-                          <div>
-                            <h4 className={`font-medium ${
-                              isCompleted ? 'text-gray-500 line-through' : 'text-gray-800'
-                            }`}>
+
+                          <div className="flex-1">
+                            <h4 className={`font-medium ${isCompleted ? 'text-gray-500 line-through' : 'text-gray-800'
+                              }`}>
                               {task.title}
                             </h4>
                             {task.description && (
@@ -541,31 +540,29 @@ console.log('Debug info:', {
                             </div>
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center gap-2">
-                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                            isCompleted
+                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${isCompleted
                               ? 'bg-green-100 text-green-700'
                               : 'bg-yellow-100 text-yellow-700'
-                          }`}>
+                            }`}>
                             {task.points} pts
                           </span>
-                          
-                          {!isCompleted ? (
-                            <button
-                              onClick={() => handleCompleteTask(task.id)}
-                              disabled={completingTask === task.id}
-                              className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors"
-                            >
-                              {completingTask === task.id ? 'Working...' : 'Complete'}
-                            </button>
-                          ) : (
+
+                          {!isCompleted && (
+                            <span className="text-xs text-gray-500">
+                              Tap to complete
+                            </span>
+                          )}
+
+                          {isCompleted && (
                             <span className="bg-green-500 text-white px-3 py-1 rounded-lg text-sm font-medium">
                               Done!
                             </span>
                           )}
                         </div>
                       </div>
+
                     )
                   })}
                 </div>
