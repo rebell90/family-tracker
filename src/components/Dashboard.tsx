@@ -136,7 +136,7 @@ console.log('Debug info:', {
       console.error('Error fetching points:', error)
     }
   }
-
+/*
   const handleCompleteTask = async (taskId: string) => {
     setCompletingTask(taskId)
     
@@ -165,6 +165,71 @@ console.log('Debug info:', {
       setCompletingTask(null)
     }
   }
+
+*/
+
+const handleCompleteTask = async (taskId: string, taskTitle: string) => {
+  // Add confirmation dialog
+  const confirmed = window.confirm(`Complete "${taskTitle}"?\n\nYou'll earn points for completing this task.`)
+  
+  if (!confirmed) return
+  
+  setCompletingTask(taskId)
+  
+  try {
+    const response = await fetch('/api/tasks/complete', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ taskId }),
+    })
+
+    const data = await response.json()
+
+    if (response.ok) {
+      alert(data.message)
+      fetchTasks()
+      fetchUserPoints()
+    } else {
+      alert(data.error)
+    }
+  } catch (error) {
+    console.error('Error completing task:', error)
+    alert('Failed to complete task')
+  } finally {
+    setCompletingTask(null)
+  }
+}
+
+const handleUndoTask = async (taskId: string, taskTitle: string) => {
+  const confirmed = window.confirm(`Undo completion of "${taskTitle}"?\n\nPoints will be removed from your total.`)
+  
+  if (!confirmed) return
+  
+  try {
+    const response = await fetch('/api/tasks/undo', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ taskId }),
+    })
+
+    const data = await response.json()
+
+    if (response.ok) {
+      alert(data.message)
+      fetchTasks()
+      fetchUserPoints()
+    } else {
+      alert(data.error)
+    }
+  } catch (error) {
+    console.error('Error undoing task:', error)
+    alert('Failed to undo task completion')
+  }
+}
 
   // Get current time period
   const getCurrentTimePeriod = () => {
@@ -425,7 +490,7 @@ console.log('Debug info:', {
                 {task.points} pts
              </span>
               <button
-               onClick={() => handleCompleteTask(task.id)}
+               onClick={() => handleCompleteTask(task.id, task.title)}
                disabled={completingTask === task.id}
                className="bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white px-3 py-1 rounded-lg text-sm font-medium"
               >
@@ -502,7 +567,7 @@ console.log('Debug info:', {
                     return (
                       <div
                         key={task.id}
-                        onClick={() => !isCompleted && handleCompleteTask(task.id)}
+                        onClick={() => !isCompleted && handleCompleteTask(task.id, task.title)}
                         className={`flex items-center justify-between p-4 rounded-lg border-2 transition-all cursor-pointer ${isCompleted
                           ? 'bg-green-50 border-green-200'
                           : 'bg-gray-50 border-gray-200 hover:border-purple-400 hover:shadow-md'
@@ -556,9 +621,20 @@ console.log('Debug info:', {
                           )}
 
                           {isCompleted && (
-                            <span className="bg-green-500 text-white px-3 py-1 rounded-lg text-sm font-medium">
-                              Done!
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="bg-green-500 text-white px-3 py-1 rounded-lg text-sm font-medium">
+                                Done!
+                              </span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation() // Prevents the row click from firing
+                                  handleUndoTask(task.id, task.title)
+                                }}
+                                className="text-xs text-orange-600 hover:text-orange-700 underline"
+                              >
+                                Undo
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
