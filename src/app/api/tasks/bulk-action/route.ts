@@ -1,8 +1,7 @@
-// app/api/tasks/bulk-action/route.ts
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import prisma from '@/lib/prisma'
+import { prisma } from '@/lib/prisma'
 
 export async function POST(request: Request) {
   try {
@@ -17,44 +16,58 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No tasks selected' }, { status: 400 })
     }
 
+    // Verify all tasks belong to the user
+    const tasks = await prisma.task.findMany({
+      where: {
+        id: { in: taskIds },
+        assignedToId: session.user.id
+      }
+    })
+
+    if (tasks.length !== taskIds.length) {
+      return NextResponse.json({ error: 'Some tasks not found or access denied' }, { status: 403 })
+    }
+
     switch (action) {
       case 'complete':
-        // Mark all tasks as completed
-        for (const taskId of taskIds) {
+        // Mark all tasks as completed and update points
+        for (const task of tasks) {
+          // Create completion record
           await prisma.taskCompletion.create({
             data: {
-              taskId,
+              taskId: task.id,
               userId: session.user.id,
               completedAt: new Date()
             }
           })
 
           // Update user points
-          const task = await prisma.task.findUnique({
-            where: { id: taskId }
+          await prisma.userPoints.upsert({
+            where: { userId: session.user.id },
+            update: {
+              currentPoints: { increment: task.points },
+              totalEarned: { increment: task.points }
+            },
+            create: {
+              userId: session.user.id,
+              currentPoints: task.points,
+              totalEarned: task.points
+            }
           })
-          
-          if (task) {
-            await prisma.userPoints.upsert({
-              where: { userId: session.user.id },
-              update: {
-                currentPoints: { increment: task.points },
-                totalEarned: { increment: task.points }
-              },
-              create: {
-                userId: session.user.id,
-                currentPoints: task.points,
-                totalEarned: task.points
-              }
-            })
-          }
         }
         break
 
       case 'skip':
-        // Mark tasks as skipped (you'd need to implement skip tracking)
-        // For now, just log them
-        console.log('Skipping tasks:', taskIds)
+        // Create skip records for all tasks
+        const skipData = taskIds.map(taskId => ({
+          taskId,
+          userId: session.user.id,
+          reason: 'Bulk skip'
+        }))
+        
+        await prisma.taskSkip.createMany({
+          data: skipData
+        })
         break
 
       case 'reschedule':
@@ -62,13 +75,14 @@ export async function POST(request: Request) {
         const today = new Date()
         today.setHours(0, 0, 0, 0)
         
-        // You'd update the due dates here if you have that field
-        // for (const taskId of taskIds) {
-        //   await prisma.task.update({
-        //     where: { id: taskId },
-        //     data: { dueDate: today }
-        //   })
-        // }
+        await prisma.task.updateMany({
+          where: {
+            id: { in: taskIds }
+          },
+          data: {
+            dueDate: today
+          }
+        })
         break
 
       default:
@@ -77,7 +91,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ 
       message: `Successfully processed ${taskIds.length} tasks`,
-      action 
+      action,
+      processedCount: taskIds.length
     })
   } catch (error) {
     console.error('Error processing bulk action:', error)
