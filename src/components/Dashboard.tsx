@@ -7,6 +7,8 @@ import TaskManager from './TaskManager'
 import FamilyManager from './FamilyManager'
 import RewardManager from './RewardManager'
 //import CatchUpManager from './CatchUpManager'
+import Link from 'next/link'
+import { AlertCircle, ExternalLink } from 'lucide-react'
 
 interface Task {
   id: string
@@ -288,6 +290,33 @@ const handleUndoTask = async (taskId: string, taskTitle: string) => {
     }, {} as Record<string, Task[]>)
   }
 
+  const handleSkipTask = async (taskId: string, taskTitle: string) => {
+  const reason = window.prompt(`Why are you skipping "${taskTitle}"? (optional)`)
+  if (reason === null) return // User cancelled
+  
+  try {
+    const response = await fetch('/api/tasks/skip', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ taskId, reason })
+    })
+
+    const data = await response.json()
+
+    if (response.ok) {
+      alert('Task marked as not completed')
+      fetchTasks() // Refresh the tasks list
+    } else {
+      alert(data.error || 'Failed to skip task')
+    }
+  } catch (error) {
+    console.error('Error skipping task:', error)
+    alert('Failed to skip task')
+  }
+}
+
   const yesterdaysMissed = getYesterdaysMissedTasks()
   const todaysTasks = getTasksForToday()
   const tasksByPeriod = groupTasksByTimePeriod(todaysTasks)
@@ -472,36 +501,61 @@ const handleUndoTask = async (taskId: string, taskTitle: string) => {
           </div>
         </div>
 
-        {/* Yesterday's Missed Tasks */}    
+        {/* Yesterday's Missed Tasks */}
         {yesterdaysMissed.length > 0 && (
           <div className="mb-6 bg-orange-50 border-2 border-orange-200 rounded-xl p-4">
-           <h3 className="text-lg font-semibold text-orange-800 mb-3">
-              Yesterday&apos;s Incomplete Tasks ({yesterdaysMissed.length})
-           </h3>
-              <div className="space-y-2">
-                {yesterdaysMissed.map(task => (
-                  <div key={task.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-orange-200">
-                  <div>
-                 <h4 className="font-medium text-gray-800">{task.title}</h4>
-                {task.description && <p className="text-sm text-gray-600">{task.description}</p>}
-              </div>
-              <div className="flex items-center gap-2">
-              <span className="px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-700">
-                {task.points} pts
-             </span>
-              <button
-               onClick={() => handleCompleteTask(task.id, task.title)}
-               disabled={completingTask === task.id}
-               className="bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white px-3 py-1 rounded-lg text-sm font-medium"
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-orange-800">
+                Yesterday's Incomplete Tasks ({yesterdaysMissed.length})
+              </h3>
+              <Link
+                href="/overdue-tasks"
+                className="flex items-center gap-1 text-sm text-orange-600 hover:text-orange-700 font-medium transition-colors"
               >
-                {completingTask === task.id ? 'Working...' : 'Complete Now'}
-              </button>
-              </div>
+                View All Overdue
+                <ExternalLink size={16} />
+              </Link>
             </div>
-          ))}
+            <div className="space-y-2">
+              {yesterdaysMissed.slice(0, 3).map(task => (
+                <div key={task.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-orange-200">
+                  <div>
+                    <h4 className="font-medium text-gray-800">{task.title}</h4>
+                    {task.description && <p className="text-sm text-gray-600">{task.description}</p>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-700">
+                      {task.points} pts
+                    </span>
+                    <button
+                      onClick={() => handleCompleteTask(task.id, task.title)}
+                      disabled={completingTask === task.id}
+                      className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-3 py-1 rounded-lg text-sm font-medium"
+                      title="Mark as completed"
+                    >
+                      {completingTask === task.id ? '...' : 'Complete'}
+                    </button>
+                    <button
+                      onClick={() => handleSkipTask(task.id, task.title)}
+                      className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded-lg text-sm font-medium"
+                      title="Skip this task"
+                    >
+                      Skip
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {yesterdaysMissed.length > 3 && (
+                <Link
+                  href="/overdue-tasks"
+                  className="block text-center text-sm text-orange-600 hover:text-orange-700 font-medium mt-2"
+                >
+                  + {yesterdaysMissed.length - 3} more overdue tasks →
+                </Link>
+              )}
+            </div>
           </div>
-       </div>
-    )}
+        )}
 
         {/* Today's Schedule */}
         <div className="space-y-6">
