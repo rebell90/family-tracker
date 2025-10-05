@@ -10,8 +10,8 @@ interface Task {
   title: string
   description?: string
   points: number
-  completed: boolean
-  completedToday: boolean
+  completedAt?: Date | string | null  // Updated from 'completed: boolean'
+  completedToday?: boolean
   timePeriod?: string
   isRecurring: boolean
   daysOfWeek: string[]

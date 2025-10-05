@@ -2,32 +2,23 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import {
-  Star,
-  CheckCircle,
-  Plus,
-  Gift,
-  Settings,
-  Users,
-  Clock,
-  Sun,
-  Sunset,
-  Moon,
-  AlertCircle,
-  ExternalLink,
-} from 'lucide-react'
+import { Star, CheckCircle, Plus, Gift, Settings, Users, Clock, Sun, Sunset, Moon } from 'lucide-react'
 import TaskManager from './TaskManager'
 import FamilyManager from './FamilyManager'
 import RewardManager from './RewardManager'
+//import CatchUpManager from './CatchUpManager'
 import Link from 'next/link'
+import { AlertCircle, ExternalLink } from 'lucide-react'
 
 interface Task {
   id: string
   title: string
   description?: string
   points: number
-  completedAt?: Date | null
-  completedToday?: boolean
+  //completed: boolean
+  completedAt?: Date | null  // Changed from 'completed: boolean'
+  completedToday?: boolean    // This will be computed based on TaskCompletion
+  //completedToday: boolean
   timePeriod?: string
   isRecurring: boolean
   daysOfWeek: string[]
@@ -46,38 +37,38 @@ interface UserStats {
 }
 
 const TIME_PERIODS = {
-  MORNING: {
-    label: 'Morning',
+  MORNING: { 
+    label: 'Morning', 
     subtitle: '6 AM - 12 PM',
-    icon: Sun,
+    icon: Sun, 
     color: 'bg-orange-100 text-orange-700',
     borderColor: 'border-orange-200',
-    bgColor: 'bg-orange-50',
+    bgColor: 'bg-orange-50'
   },
-  AFTERNOON: {
-    label: 'Afternoon',
+  AFTERNOON: { 
+    label: 'Afternoon', 
     subtitle: '12 PM - 6 PM',
-    icon: Sun, // or Sunset
+    icon: Sun, 
     color: 'bg-yellow-100 text-yellow-700',
     borderColor: 'border-yellow-200',
-    bgColor: 'bg-yellow-50',
+    bgColor: 'bg-yellow-50'
   },
-  EVENING: {
-    label: 'Evening',
+  EVENING: { 
+    label: 'Evening', 
     subtitle: '6 PM - 10 PM',
-    icon: Moon,
+    icon: Moon, 
     color: 'bg-blue-100 text-blue-700',
     borderColor: 'border-blue-200',
-    bgColor: 'bg-blue-50',
+    bgColor: 'bg-blue-50'
   },
-  ANYTIME: {
-    label: 'Anytime',
+  ANYTIME: { 
+    label: 'Anytime', 
     subtitle: 'No specific time',
-    icon: Clock,
+    icon: Clock, 
     color: 'bg-gray-100 text-gray-700',
     borderColor: 'border-gray-200',
-    bgColor: 'bg-gray-50',
-  },
+    bgColor: 'bg-gray-50'
+  }
 }
 
 const DAYS_MAP = {
@@ -87,7 +78,7 @@ const DAYS_MAP = {
   WEDNESDAY: 3,
   THURSDAY: 4,
   FRIDAY: 5,
-  SATURDAY: 6,
+  SATURDAY: 6
 }
 
 export default function Dashboard() {
@@ -97,68 +88,71 @@ export default function Dashboard() {
     currentPoints: 0,
     totalEarned: 0,
     tasksCompletedToday: 0,
-    streak: 0,
+    streak: 0
   })
   const [showTaskManager, setShowTaskManager] = useState(false)
   const [showFamilyManager, setShowFamilyManager] = useState(false)
   const [showRewardManager, setShowRewardManager] = useState(false)
+  //const [showCatchUpManager, setShowCatchUpManager] = useState(false)
   const [completingTask, setCompletingTask] = useState<string | null>(null)
   const [overdueTasks, setOverdueTasks] = useState<number>(0)
 
-  const user = session?.user as { name?: string; role?: string } | undefined
-  const isParent = user?.role === 'PARENT'
-  const isChild = user?.role === 'CHILD'
+const user = session?.user as { name?: string; role?: string } | undefined
+const isParent = user?.role === 'PARENT'
+const isChild = user?.role === 'CHILD'
+// Add this right after your isParent declaration
+console.log('Debug info:', {
+  session: session,
+  user: user,
+  userRole: user?.role,
+  isParent: isParent,
+  showFamilyManager: showFamilyManager
+});
 
-  console.log('Debug info:', {
-    session,
-    user,
-    userRole: user?.role,
-    isParent,
-    showFamilyManager,
-  })
-
-  useEffect(() => {
-    if (session?.user) {
-      fetchTasks()
-      fetchUserPoints()
-      fetchOverdueCount()
-    }
-  }, [session])
-
-  const fetchTasks = async () => {
-    try {
-      const response = await fetch('/api/tasks')
-      const data = await response.json()
-
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-
-      const completionsResponse = await fetch('/api/tasks/todays-completions')
-      const todaysCompletions = await completionsResponse.json()
-      const completedTodayIds = new Set(todaysCompletions.map((c: any) => c.taskId))
-
-      const tasksWithTodayStatus: Task[] = data.map((task: any) => ({
-        ...task,
-        completedToday:
-          completedTodayIds.has(task.id) ||
-          (task.completedAt && new Date(task.completedAt) >= today),
-      }))
-
-      setTasks(tasksWithTodayStatus)
-    } catch (error) {
-      console.error('Error fetching tasks:', error)
-    }
+useEffect(() => {
+  if (session?.user) {
+    fetchTasks()
+    fetchUserPoints()
+    fetchOverdueCount() // Add this line
   }
+}, [session])
+
+const fetchTasks = async () => {
+  try {
+    const response = await fetch('/api/tasks')
+    const data = await response.json()
+    
+    // Get today's completions
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    const completionsResponse = await fetch('/api/tasks/todays-completions')
+    const todaysCompletions = await completionsResponse.json()
+    const completedTodayIds = new Set(todaysCompletions.map((c: any) => c.taskId))
+    
+    // Mark tasks as completed today
+    const tasksWithTodayStatus = data.map((task: any) => ({
+      ...task,
+      completedToday: completedTodayIds.has(task.id) || 
+                      (task.completedAt && new Date(task.completedAt) >= today)
+    }))
+    
+    setTasks(tasksWithTodayStatus)
+  } catch (error) {
+    console.error('Error fetching tasks:', error)
+  }
+}
+
 
   const fetchUserPoints = async () => {
     try {
       const response = await fetch('/api/user/points')
       if (response.ok) {
         const data = await response.json()
-        setStats((prev) => ({
+        setStats(prev => ({
           ...prev,
           currentPoints: data.currentPoints,
-          totalEarned: data.totalEarned,
+          totalEarned: data.totalEarned
         }))
       }
     } catch (error) {
@@ -166,76 +160,80 @@ export default function Dashboard() {
     }
   }
 
-  const fetchOverdueCount = async () => {
-    try {
-      const response = await fetch('/api/tasks/overdue')
-      const data = await response.json()
-      setOverdueTasks(data.length || 0)
-    } catch (error) {
-      console.error('Error fetching overdue count:', error)
-    }
+const fetchOverdueCount = async () => {
+  try {
+    const response = await fetch('/api/tasks/overdue')
+    const data = await response.json()
+    setOverdueTasks(data.length || 0)
+  } catch (error) {
+    console.error('Error fetching overdue count:', error)
   }
+}
 
-  const handleCompleteTask = async (taskId: string, taskTitle: string) => {
-    const confirmed = window.confirm(
-      `Complete "${taskTitle}"?\n\nYou'll earn points for completing this task.`
-    )
-    if (!confirmed) return
+const handleCompleteTask = async (taskId: string, taskTitle: string) => {
+  // Add confirmation dialog
+  const confirmed = window.confirm(`Complete "${taskTitle}"?\n\nYou'll earn points for completing this task.`)
+  
+  if (!confirmed) return
+  
+  setCompletingTask(taskId)
+  
+  try {
+    const response = await fetch('/api/tasks/complete', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ taskId }),
+    })
 
-    setCompletingTask(taskId)
+    const data = await response.json()
 
-    try {
-      const response = await fetch('/api/tasks/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId }),
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        alert(data.message)
-        fetchTasks()
-        fetchUserPoints()
-      } else {
-        alert(data.error)
-      }
-    } catch (error) {
-      console.error('Error completing task:', error)
-      alert('Failed to complete task')
-    } finally {
-      setCompletingTask(null)
+    if (response.ok) {
+      alert(data.message)
+      fetchTasks()
+      fetchUserPoints()
+    } else {
+      alert(data.error)
     }
+  } catch (error) {
+    console.error('Error completing task:', error)
+    alert('Failed to complete task')
+  } finally {
+    setCompletingTask(null)
   }
+}
 
-  const handleUndoTask = async (taskId: string, taskTitle: string) => {
-    const confirmed = window.confirm(
-      `Undo completion of "${taskTitle}"?\n\nPoints will be removed from your total.`
-    )
-    if (!confirmed) return
+const handleUndoTask = async (taskId: string, taskTitle: string) => {
+  const confirmed = window.confirm(`Undo completion of "${taskTitle}"?\n\nPoints will be removed from your total.`)
+  
+  if (!confirmed) return
+  
+  try {
+    const response = await fetch('/api/tasks/undo', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ taskId }),
+    })
 
-    try {
-      const response = await fetch('/api/tasks/undo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId }),
-      })
+    const data = await response.json()
 
-      const data = await response.json()
-
-      if (response.ok) {
-        alert(data.message)
-        fetchTasks()
-        fetchUserPoints()
-      } else {
-        alert(data.error)
-      }
-    } catch (error) {
-      console.error('Error undoing task:', error)
-      alert('Failed to undo task completion')
+    if (response.ok) {
+      alert(data.message)
+      fetchTasks()
+      fetchUserPoints()
+    } else {
+      alert(data.error)
     }
+  } catch (error) {
+    console.error('Error undoing task:', error)
+    alert('Failed to undo task completion')
   }
+}
 
+  // Get current time period
   const getCurrentTimePeriod = () => {
     const hour = new Date().getHours()
     if (hour >= 6 && hour < 12) return 'MORNING'
@@ -244,73 +242,87 @@ export default function Dashboard() {
     return 'ANYTIME'
   }
 
-  const getYesterdaysMissedTasks = () => {
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-    const dayOfWeek = yesterday.getDay()
-    const dayName = Object.keys(DAYS_MAP)[Object.values(DAYS_MAP).indexOf(dayOfWeek)]
+const getYesterdaysMissedTasks = () => {
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  const dayOfWeek = yesterday.getDay()
+  const dayName = Object.keys(DAYS_MAP)[Object.values(DAYS_MAP).indexOf(dayOfWeek)]
 
-    return tasks.filter((task) => {
-      if (task.completedAt || task.completedToday) return false
-      if (!task.isRecurring) return true
-      if (task.daysOfWeek.length === 0) return true
-      return task.daysOfWeek.includes(dayName)
-    })
-  }
+  return tasks.filter(task => {
+    // Only show incomplete tasks (no completedAt and not completed today)
+    if (task.completedAt || task.completedToday) return false
+    
+    // Check if task was scheduled for yesterday
+    if (!task.isRecurring) return true
+    if (task.daysOfWeek.length === 0) return true
+    return task.daysOfWeek.includes(dayName)
+  })
+}
 
+  // Filter tasks for today
   const getTasksForToday = () => {
-    const today = new Date().getDay()
+    const today = new Date().getDay() // 0 = Sunday, 1 = Monday, etc.
     const dayName = Object.keys(DAYS_MAP)[Object.values(DAYS_MAP).indexOf(today)]
 
-    return tasks.filter((task) => {
+    return tasks.filter(task => {
+      // Show non-recurring tasks always
       if (!task.isRecurring) return true
+      
+      // Show recurring tasks only on their scheduled days
       if (task.isRecurring && task.daysOfWeek.length > 0) {
         return task.daysOfWeek.includes(dayName)
       }
+      
+      // Show recurring tasks with no specific days
       return true
     })
   }
 
+  // Group tasks by time period
   const groupTasksByTimePeriod = (tasks: Task[]) => {
     return tasks.reduce((acc, task) => {
       const period = task.timePeriod || 'ANYTIME'
-      if (!acc[period]) acc[period] = []
+      if (!acc[period]) {
+        acc[period] = []
+      }
       acc[period].push(task)
       return acc
     }, {} as Record<string, Task[]>)
   }
 
   const handleSkipTask = async (taskId: string, taskTitle: string) => {
-    const reason = window.prompt(`Why are you skipping "${taskTitle}"? (optional)`)
-    if (reason === null) return
+  const reason = window.prompt(`Why are you skipping "${taskTitle}"? (optional)`)
+  if (reason === null) return // User cancelled
+  
+  try {
+    const response = await fetch('/api/tasks/skip', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ taskId, reason })
+    })
 
-    try {
-      const response = await fetch('/api/tasks/skip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId, reason }),
-      })
+    const data = await response.json()
 
-      const data = await response.json()
-
-      if (response.ok) {
-        alert('Task marked as not completed')
-        fetchTasks()
-      } else {
-        alert(data.error || 'Failed to skip task')
-      }
-    } catch (error) {
-      console.error('Error skipping task:', error)
-      alert('Failed to skip task')
+    if (response.ok) {
+      alert('Task marked as not completed')
+      fetchTasks() // Refresh the tasks list
+    } else {
+      alert(data.error || 'Failed to skip task')
     }
+  } catch (error) {
+    console.error('Error skipping task:', error)
+    alert('Failed to skip task')
   }
+}
 
   const yesterdaysMissed = getYesterdaysMissedTasks()
   const todaysTasks = getTasksForToday()
   const tasksByPeriod = groupTasksByTimePeriod(todaysTasks)
   const currentPeriod = getCurrentTimePeriod()
 
-  // Manager screens
+  // If viewing other screens, show them
   if (isParent && showTaskManager) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
@@ -367,8 +379,26 @@ export default function Dashboard() {
       </div>
     )
   }
+  /*
+  if (showCatchUpManager) {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold text-gray-800">Catch Up Tasks</h1>
+          <button
+            onClick={() => setShowCatchUpManager(false)}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+        <CatchUpManager />
+      </div>
+    </div>
+  )
+} */
 
-  // Dashboard
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
       <div className="max-w-4xl mx-auto">
@@ -379,10 +409,9 @@ export default function Dashboard() {
               Hi {session?.user?.name || 'there'}! 👋
             </h1>
             <p className="text-gray-600 mt-1">
-              {isChild ? "Let's see what you can accomplish today!" : 'Family Dashboard'}
+              {isChild ? "Let's see what you can accomplish today!" : "Family Dashboard"}
             </p>
           </div>
-
           {isParent && (
             <div className="flex gap-2">
               <button
@@ -408,16 +437,15 @@ export default function Dashboard() {
               </button>
             </div>
           )}
-
           {isChild && (
             <div className="flex gap-2">
-              <button
-                onClick={() => setShowRewardManager(true)}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-              >
-                <Gift size={20} />
-                Reward Store
-              </button>
+            <button
+              onClick={() => setShowRewardManager(true)}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+            >
+              <Gift size={20} />
+              Reward Store
+            </button>
             </div>
           )}
         </div>
@@ -448,15 +476,14 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Overdue banner (compare number to yesterdaysMissed.length) */}
-          {overdueTasks > yesterdaysMissed.length && (
-            <div className="mb-6 bg-red-50 border-2 border-red-200 rounded-xl p-4 md:col-span-2">
+          {overdueTasks.length > yesterdaysMissed.length && (
+            <div className="mb-6 bg-red-50 border-2 border-red-200 rounded-xl p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <AlertCircle className="text-red-500" size={24} />
                   <div>
                     <h3 className="font-semibold text-red-800">
-                      You have {overdueTasks} overdue task{overdueTasks !== 1 ? 's' : ''}
+                      You have {overdueTasks.length} overdue tasks
                     </h3>
                     <p className="text-sm text-red-600">
                       Take a moment to catch up or reschedule them
@@ -471,7 +498,7 @@ export default function Dashboard() {
                 </Link>
               </div>
             </div>
-          )}
+)}
 
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
             <div className="flex items-center gap-3">
@@ -514,16 +541,11 @@ export default function Dashboard() {
               </Link>
             </div>
             <div className="space-y-2">
-              {yesterdaysMissed.slice(0, 3).map((task) => (
-                <div
-                  key={task.id}
-                  className="flex items-center justify-between p-3 bg-white rounded-lg border border-orange-200"
-                >
+              {yesterdaysMissed.slice(0, 3).map(task => (
+                <div key={task.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-orange-200">
                   <div>
                     <h4 className="font-medium text-gray-800">{task.title}</h4>
-                    {task.description && (
-                      <p className="text-sm text-gray-600">{task.description}</p>
-                    )}
+                    {task.description && <p className="text-sm text-gray-600">{task.description}</p>}
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-700">
@@ -559,16 +581,16 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Today */}
+        {/* Today's Schedule */}
         <div className="space-y-6">
           <div className="text-center mb-6">
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Today&apos;s Schedule</h2>
             <p className="text-gray-600">
-              {new Date().toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
+              {new Date().toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
               })}
             </p>
           </div>
@@ -581,18 +603,16 @@ export default function Dashboard() {
             if (periodTasks.length === 0) return null
 
             return (
-              <div
+              <div 
                 key={periodKey}
                 className={`bg-white rounded-xl shadow-sm border-2 transition-all ${
-                  isCurrentPeriod ? `${periodInfo.borderColor} shadow-md` : 'border-gray-100'
+                  isCurrentPeriod 
+                    ? `${periodInfo.borderColor} shadow-md` 
+                    : 'border-gray-100'
                 }`}
               >
                 {/* Period Header */}
-                <div
-                  className={`p-4 rounded-t-xl ${
-                    isCurrentPeriod ? periodInfo.bgColor : 'bg-gray-50'
-                  }`}
-                >
+                <div className={`p-4 rounded-t-xl ${isCurrentPeriod ? periodInfo.bgColor : 'bg-gray-50'}`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className={`p-2 rounded-lg ${periodInfo.color}`}>
@@ -619,86 +639,75 @@ export default function Dashboard() {
                 {/* Tasks */}
                 <div className="p-4 space-y-3">
                   {periodTasks.map((task) => {
-                    const isCompleted = !!task.completedToday || task.completedAt != null
+                    const isCompleted = task.completedToday || task.completedAt !== null
                     return (
+                  <div
+                    key={task.id}
+                    className={`flex items-center justify-between p-4 rounded-lg border-2 transition-all ${isCompleted
+                        ? 'bg-green-50 border-green-200'
+                        : 'bg-gray-50 border-gray-200 hover:border-purple-400 hover:shadow-md'
+                      }`}
+                  >
+                    <div
+                      className="flex items-center gap-3 flex-1 cursor-pointer"
+                      onClick={() => !isCompleted && handleCompleteTask(task.id, task.title)}
+                    >
                       <div
-                        key={task.id}
-                        className={`flex items-center justify-between p-4 rounded-lg border-2 transition-all ${
-                          isCompleted
-                            ? 'bg-green-50 border-green-200'
-                            : 'bg-gray-50 border-gray-200 hover:border-purple-400 hover:shadow-md'
-                        }`}
+                        className={`w-8 h-8 rounded-full border-3 flex items-center justify-center transition-colors ${isCompleted
+                            ? 'bg-green-500 border-green-500 text-white'
+                            : 'border-purple-400 hover:bg-purple-50'
+                          }`}
                       >
-                        <div
-                          className="flex items-center gap-3 flex-1 cursor-pointer"
-                          onClick={() => !isCompleted && handleCompleteTask(task.id, task.title)}
-                        >
-                          <div
-                            className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors ${
-                              isCompleted
-                                ? 'bg-green-500 border-green-500 text-white'
-                                : 'border-purple-400 hover:bg-purple-50'
-                            }`}
-                          >
-                            {isCompleted && <CheckCircle size={20} />}
-                          </div>
-
-                          <div className="flex-1">
-                            <h4
-                              className={`font-medium ${
-                                isCompleted ? 'text-gray-500 line-through' : 'text-gray-800'
-                              }`}
-                            >
-                              {task.title}
-                            </h4>
-                            {task.description && (
-                              <p className={`text-sm ${isCompleted ? 'text-gray-400' : 'text-gray-600'}`}>
-                                {task.description}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`px-3 py-1 rounded-full text-sm font-medium ${
-                              isCompleted ? 'bg-gray-100 text-gray-500' : 'bg-yellow-100 text-yellow-700'
-                            }`}
-                          >
-                            {task.points} pts
-                          </span>
-
-                          {!isCompleted && task.isRecurring && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleSkipTask(task.id, task.title)
-                              }}
-                              className="text-orange-500 hover:text-orange-600 text-sm font-medium"
-                              title="Skip today"
-                            >
-                              Skip
-                            </button>
-                          )}
-
-                          {isCompleted && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleUndoTask(task.id, task.title)
-                              }}
-                              className="text-gray-500 hover:text-gray-700"
-                              title="Undo"
-                            >
-                              Undo
-                            </button>
-                          )}
-                        </div>
+                        {isCompleted && <CheckCircle size={20} />}
                       </div>
-                    )
-                  })}
-                </div>
-              </div>
+
+                      <div className="flex-1">
+                        <h4 className={`font-medium ${isCompleted ? 'text-gray-500 line-through' : 'text-gray-800'}`}>
+                          {task.title}
+                        </h4>
+                        {task.description && (
+                          <p className={`text-sm ${isCompleted ? 'text-gray-400' : 'text-gray-600'}`}>
+                            {task.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${isCompleted
+                          ? 'bg-gray-100 text-gray-500'
+                          : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                        {task.points} pts
+                      </span>
+
+                      {!isCompleted && task.isRecurring && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleSkipTask(task.id, task.title)
+                          }}
+                          className="text-orange-500 hover:text-orange-600 text-sm font-medium"
+                          title="Skip today"
+                        >
+                          Skip
+                        </button>
+                      )}
+
+                      {isCompleted && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleUndoComplete(task.id)
+                          }}
+                          className="text-gray-500 hover:text-gray-700"
+                          title="Undo"
+                        >
+                          Undo
+                        </button>
+                      )}
+                    </div>
+                  </div>
             )
           })}
 
@@ -720,21 +729,21 @@ export default function Dashboard() {
           <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-xl font-semibold text-gray-800 mb-4">Quick Actions</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <button
+              <button 
                 onClick={() => setShowFamilyManager(true)}
                 className="p-4 text-left rounded-lg border border-gray-200 hover:border-blue-300 transition-colors"
               >
                 <h3 className="font-medium text-gray-800">Manage Family</h3>
                 <p className="text-sm text-gray-600 mt-1">Invite family members and manage accounts</p>
               </button>
-              <button
+              <button 
                 onClick={() => setShowTaskManager(true)}
                 className="p-4 text-left rounded-lg border border-gray-200 hover:border-purple-300 transition-colors"
               >
                 <h3 className="font-medium text-gray-800">Manage Tasks</h3>
                 <p className="text-sm text-gray-600 mt-1">Add, edit, or remove family tasks</p>
               </button>
-              <button
+              <button 
                 onClick={() => setShowRewardManager(true)}
                 className="p-4 text-left rounded-lg border border-gray-200 hover:border-purple-300 transition-colors"
               >
@@ -744,7 +753,6 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-      </div>{/* end max-w wrapper */}
-    </div>   {/* end page wrapper */}
-  )
-}
+      </div>
+  ) }
+)}
