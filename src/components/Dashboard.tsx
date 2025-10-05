@@ -622,6 +622,9 @@ const handleUndoTask = async (taskId: string, taskTitle: string) => {
                 {/* Tasks */}
 
                 <div className="p-4 space-y-3">
+                  {periodTasks.map((task) => {
+                    const isCompleted = task.completedToday || task.completed
+                    return (
                   <div
                     key={task.id}
                     className={`flex items-center justify-between p-4 rounded-lg border-2 transition-all ${isCompleted

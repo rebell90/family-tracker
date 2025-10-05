@@ -17,7 +17,7 @@ export async function GET() {
     const tasks = await prisma.task.findMany({
       where: {
         assignedToId: session.user.id,
-        completed: false
+        completedAt: null  // Task is incomplete if completedAt is null
       },
       include: {
         assignedTo: {
