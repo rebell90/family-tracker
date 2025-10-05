@@ -93,6 +93,7 @@ export default function Dashboard() {
   const [showRewardManager, setShowRewardManager] = useState(false)
   //const [showCatchUpManager, setShowCatchUpManager] = useState(false)
   const [completingTask, setCompletingTask] = useState<string | null>(null)
+  const [overdueTasks, setOverdueTasks] = useState<number>(0)
 
 const user = session?.user as { name?: string; role?: string } | undefined
 const isParent = user?.role === 'PARENT'
@@ -106,10 +107,13 @@ console.log('Debug info:', {
   showFamilyManager: showFamilyManager
 });
 
-  useEffect(() => {
+useEffect(() => {
+  if (session?.user) {
     fetchTasks()
     fetchUserPoints()
-  }, [])
+    fetchOverdueCount() // Add this line
+  }
+}, [session])
 
   const fetchTasks = async () => {
     try {
@@ -138,37 +142,16 @@ console.log('Debug info:', {
       console.error('Error fetching points:', error)
     }
   }
-/*
-  const handleCompleteTask = async (taskId: string) => {
-    setCompletingTask(taskId)
-    
-    try {
-      const response = await fetch('/api/tasks/complete', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ taskId }),
-      })
 
-      const data = await response.json()
-
-      if (response.ok) {
-        alert(data.message)
-        fetchTasks()
-        fetchUserPoints()
-      } else {
-        alert(data.error)
-      }
-    } catch (error) {
-      console.error('Error completing task:', error)
-      alert('Failed to complete task')
-    } finally {
-      setCompletingTask(null)
-    }
+const fetchOverdueCount = async () => {
+  try {
+    const response = await fetch('/api/tasks/overdue')
+    const data = await response.json()
+    setOverdueTasks(data.length || 0)
+  } catch (error) {
+    console.error('Error fetching overdue count:', error)
   }
-
-*/
+}
 
 const handleCompleteTask = async (taskId: string, taskTitle: string) => {
   // Add confirmation dialog
@@ -476,6 +459,30 @@ const handleUndoTask = async (taskId: string, taskTitle: string) => {
             </div>
           </div>
 
+          {overdueTasks.length > yesterdaysMissed.length && (
+            <div className="mb-6 bg-red-50 border-2 border-red-200 rounded-xl p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="text-red-500" size={24} />
+                  <div>
+                    <h3 className="font-semibold text-red-800">
+                      You have {overdueTasks.length} overdue tasks
+                    </h3>
+                    <p className="text-sm text-red-600">
+                      Take a moment to catch up or reschedule them
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href="/overdue-tasks"
+                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                >
+                  Manage Overdue Tasks
+                </Link>
+              </div>
+            </div>
+)}
+
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
             <div className="flex items-center gap-3">
               <div className="bg-blue-100 p-2 rounded-lg">
@@ -506,7 +513,7 @@ const handleUndoTask = async (taskId: string, taskTitle: string) => {
           <div className="mb-6 bg-orange-50 border-2 border-orange-200 rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold text-orange-800">
-                Yesterday's Incomplete Tasks ({yesterdaysMissed.length})
+                Yesterday&apos;s Incomplete Tasks ({yesterdaysMissed.length})
               </h3>
               <Link
                 href="/overdue-tasks"
@@ -615,86 +622,73 @@ const handleUndoTask = async (taskId: string, taskTitle: string) => {
                 {/* Tasks */}
 
                 <div className="p-4 space-y-3">
-                  {periodTasks.map((task) => {
-                    const isCompleted = task.completedToday || task.completed
-
-                    return (
+                  <div
+                    key={task.id}
+                    className={`flex items-center justify-between p-4 rounded-lg border-2 transition-all ${isCompleted
+                        ? 'bg-green-50 border-green-200'
+                        : 'bg-gray-50 border-gray-200 hover:border-purple-400 hover:shadow-md'
+                      }`}
+                  >
+                    <div
+                      className="flex items-center gap-3 flex-1 cursor-pointer"
+                      onClick={() => !isCompleted && handleCompleteTask(task.id, task.title)}
+                    >
                       <div
-                        key={task.id}
-                        onClick={() => !isCompleted && handleCompleteTask(task.id, task.title)}
-                        className={`flex items-center justify-between p-4 rounded-lg border-2 transition-all cursor-pointer ${isCompleted
-                          ? 'bg-green-50 border-green-200'
-                          : 'bg-gray-50 border-gray-200 hover:border-purple-400 hover:shadow-md'
+                        className={`w-8 h-8 rounded-full border-3 flex items-center justify-center transition-colors ${isCompleted
+                            ? 'bg-green-500 border-green-500 text-white'
+                            : 'border-purple-400 hover:bg-purple-50'
                           }`}
                       >
-                        <div className="flex items-center gap-3 flex-1">
-                          <div
-                            className={`w-8 h-8 rounded-full border-3 flex items-center justify-center transition-colors ${isCompleted
-                              ? 'bg-green-500 border-green-500 text-white'
-                              : 'border-purple-400 hover:bg-purple-50'
-                              }`}
-                          >
-                            {isCompleted && <CheckCircle size={20} />}
-                          </div>
-
-                          <div className="flex-1">
-                            <h4 className={`font-medium ${isCompleted ? 'text-gray-500 line-through' : 'text-gray-800'
-                              }`}>
-                              {task.title}
-                            </h4>
-                            {task.description && (
-                              <p className="text-sm text-gray-600">{task.description}</p>
-                            )}
-                            <div className="flex items-center gap-2 mt-1">
-                              {task.assignedTo && (
-                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                                  For: {task.assignedTo.name}
-                                </span>
-                              )}
-                              {task.isRecurring && (
-                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
-                                  Recurring
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${isCompleted
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-yellow-100 text-yellow-700'
-                            }`}>
-                            {task.points} pts
-                          </span>
-
-                          {!isCompleted && (
-                            <span className="text-xs text-gray-500">
-                              Tap to complete
-                            </span>
-                          )}
-
-                          {isCompleted && (
-                            <div className="flex items-center gap-2">
-                              <span className="bg-green-500 text-white px-3 py-1 rounded-lg text-sm font-medium">
-                                Done!
-                              </span>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation() // Prevents the row click from firing
-                                  handleUndoTask(task.id, task.title)
-                                }}
-                                className="text-xs text-orange-600 hover:text-orange-700 underline"
-                              >
-                                Undo
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                        {isCompleted && <CheckCircle size={20} />}
                       </div>
 
-                    )
-                  })}
+                      <div className="flex-1">
+                        <h4 className={`font-medium ${isCompleted ? 'text-gray-500 line-through' : 'text-gray-800'}`}>
+                          {task.title}
+                        </h4>
+                        {task.description && (
+                          <p className={`text-sm ${isCompleted ? 'text-gray-400' : 'text-gray-600'}`}>
+                            {task.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${isCompleted
+                          ? 'bg-gray-100 text-gray-500'
+                          : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                        {task.points} pts
+                      </span>
+
+                      {!isCompleted && task.isRecurring && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleSkipTask(task.id, task.title)
+                          }}
+                          className="text-orange-500 hover:text-orange-600 text-sm font-medium"
+                          title="Skip today"
+                        >
+                          Skip
+                        </button>
+                      )}
+
+                      {isCompleted && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleUndoComplete(task.id)
+                          }}
+                          className="text-gray-500 hover:text-gray-700"
+                          title="Undo"
+                        >
+                          Undo
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             )
