@@ -56,6 +56,7 @@ model User {
   userPoints        UserPoints?
   createdRewards    Reward[]
   redeemedRewards   RewardRedemption[]
+  skips             TaskSkip[]
 
   @@map("users")
 }
@@ -98,12 +99,14 @@ model Task {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   completedAt DateTime?
+  dueDate     DateTime?
 
   // Relations
   createdBy   User               @relation("TaskCreator", fields: [createdById], references: [id])
   assignedTo  User?              @relation("TaskAssignee", fields: [assignedToId], references: [id])
   family      Family             @relation(fields: [familyId], references: [id])
   completions TaskCompletion[]
+  skips       TaskSkip[]       // Add this relation
 
   @@map("tasks")
 }
@@ -122,6 +125,23 @@ model TaskCompletion {
   user User @relation(fields: [userId], references: [id])
 
   @@map("task_completions")
+}
+
+model TaskSkip {
+  id         String   @id @default(cuid())
+  taskId     String  
+  userId     String
+  reason     String?  // Optional reason for skipping
+  skippedAt  DateTime @default(now())
+
+  // Relations
+  task       Task     @relation(fields: [taskId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
+  
+  @@index([taskId])
+  @@index([userId])
+  @@index([skippedAt])
+  @@map("task_skips")
 }
 
 model UserPoints {
