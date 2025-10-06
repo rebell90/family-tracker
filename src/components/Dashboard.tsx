@@ -577,6 +577,14 @@ const fetchTasks = async () => {
             const IconComponent = periodInfo.icon
 
             if (periodTasks.length === 0) return null
+              
+            console.log('Task Debug:', {
+              title: task.title,
+              completedToday: task.completedToday,
+              completedAt: task.completedAt,
+              completedAtType: typeof task.completedAt,
+              isCompleted: isCompleted
+                })
 
             return (
               <div 
@@ -615,7 +623,10 @@ const fetchTasks = async () => {
                 {/* Tasks */}
                 <div className="p-4 space-y-3">
                   {periodTasks.map((task) => {
-                    const isCompleted = task.completedToday || task.completedAt !== null
+                       const isCompleted = task.completedToday === true || 
+                          (task.completedAt !== null && 
+                          task.completedAt !== undefined
+                          )
                     return (
                       <div
                         key={task.id}
