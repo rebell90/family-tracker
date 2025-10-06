@@ -10,7 +10,7 @@ interface Task {
   title: string
   description?: string
   points: number
-  completedAt?: Date | string | null  // Updated from 'completed: boolean'
+  completedAt?: Date | string | null
   completedToday?: boolean
   timePeriod?: string
   isRecurring: boolean
@@ -22,6 +22,7 @@ interface Task {
   }
   createdAt?: string
   dueDate?: string
+  missedDate?: string  // Added - when the task was supposed to be done
 }
 
 interface GroupedTasks {
@@ -33,7 +34,7 @@ export default function OverdueTasks() {
   const [overdueTasks, setOverdueTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [processingTask, setProcessingTask] = useState<string | null>(null)
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['Yesterday', 'This Week']))
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set())
 
   useEffect(() => {
@@ -43,7 +44,13 @@ export default function OverdueTasks() {
   const fetchOverdueTasks = async () => {
     try {
       const response = await fetch('/api/tasks/overdue')
-      const data = await response.json()
+      const result = await response.json()
+      
+      console.log('Overdue API Response:', result)  // Debug
+      
+      // Handle both array and object responses
+      const data: Task[] = Array.isArray(result) ? result : (result.tasks || [])
+      
       setOverdueTasks(data)
       setLoading(false)
     } catch (error) {
@@ -185,25 +192,33 @@ export default function OverdueTasks() {
     const grouped: GroupedTasks = {}
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-    const thisWeek = new Date(today)
-    thisWeek.setDate(thisWeek.getDate() - 7)
 
     tasks.forEach(task => {
-      // For simplicity, we'll group by relative time periods
-      // In a real app, you'd want to track actual due dates
+      // Use missedDate if available, otherwise use createdAt
+      const taskDateStr = task.missedDate || task.createdAt
+      
+      if (!taskDateStr) {
+        // If no date info, put in "Older Tasks"
+        if (!grouped['Older Tasks']) grouped['Older Tasks'] = []
+        grouped['Older Tasks'].push(task)
+        return
+      }
+
+      const taskDate = new Date(taskDateStr)
+      taskDate.setHours(0, 0, 0, 0)
+      
+      const diffTime = today.getTime() - taskDate.getTime()
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+
       let group = 'Older Tasks'
       
-      // This is simplified - you'd need actual due date logic
-      const randomDaysAgo = Math.floor(Math.random() * 14) // Placeholder
-      if (randomDaysAgo === 0) {
+      if (diffDays === 0) {
         group = 'Today'
-      } else if (randomDaysAgo === 1) {
+      } else if (diffDays === 1) {
         group = 'Yesterday'
-      } else if (randomDaysAgo <= 7) {
+      } else if (diffDays <= 7) {
         group = 'This Week'
-      } else {
+      } else if (diffDays <= 14) {
         group = 'Last Week'
       }
 
