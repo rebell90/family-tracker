@@ -122,7 +122,7 @@ export default function Dashboard() {
 const fetchTasks = async () => {
   try {
     const response = await fetch('/api/tasks')
-    const data: Task[] = await response.json()  // ADD TYPE HERE
+    const data: Task[] = await response.json()
     
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -134,7 +134,7 @@ const fetchTasks = async () => {
     const tasksWithTodayStatus = data.map((task) => ({
       ...task,
       completedToday: completedTodayIds.has(task.id) || 
-                      (task.completedAt && new Date(task.completedAt) >= today)
+                      Boolean(task.completedAt && new Date(task.completedAt) >= today)  // WRAP IN Boolean()
     }))
     
     setTasks(tasksWithTodayStatus)
