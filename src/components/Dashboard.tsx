@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { Star, CheckCircle, Plus, Gift, Settings, Users, Clock, Sun, Sunset, Moon } from 'lucide-react'
+import { Star, CheckCircle, Gift, Settings, Users, Clock, Sun, Moon } from 'lucide-react'
 import TaskManager from './TaskManager'
 import FamilyManager from './FamilyManager'
 import RewardManager from './RewardManager'
@@ -31,6 +31,12 @@ interface UserStats {
   totalEarned: number
   tasksCompletedToday: number
   streak: number
+}
+
+interface TaskCompletion {
+  taskId: string
+  completedAt: Date
+  userId: string
 }
 
 const TIME_PERIODS = {
@@ -113,29 +119,29 @@ export default function Dashboard() {
     }
   }, [session])
 
-  const fetchTasks = async () => {
-    try {
-      const response = await fetch('/api/tasks')
-      const data = await response.json()
-      
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      
-      const completionsResponse = await fetch('/api/tasks/todays-completions')
-      const todaysCompletions = await completionsResponse.json()
-      const completedTodayIds = new Set(todaysCompletions.map((c: any) => c.taskId))
-      
-      const tasksWithTodayStatus = data.map((task: any) => ({
-        ...task,
-        completedToday: completedTodayIds.has(task.id) || 
-                        (task.completedAt && new Date(task.completedAt) >= today)
-      }))
-      
-      setTasks(tasksWithTodayStatus)
-    } catch (error) {
-      console.error('Error fetching tasks:', error)
-    }
+const fetchTasks = async () => {
+  try {
+    const response = await fetch('/api/tasks')
+    const data = await response.json()
+    
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    const completionsResponse = await fetch('/api/tasks/todays-completions')
+    const todaysCompletions: TaskCompletion[] = await completionsResponse.json()  // FIXED
+    const completedTodayIds = new Set(todaysCompletions.map((c) => c.taskId))     // FIXED - removed : any
+    
+    const tasksWithTodayStatus = data.map((task: any) => ({
+      ...task,
+      completedToday: completedTodayIds.has(task.id) || 
+                      (task.completedAt && new Date(task.completedAt) >= today)
+    }))
+    
+    setTasks(tasksWithTodayStatus)
+  } catch (error) {
+    console.error('Error fetching tasks:', error)
   }
+}
 
   const fetchUserPoints = async () => {
     try {
