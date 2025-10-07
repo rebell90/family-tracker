@@ -132,7 +132,37 @@ export default function OverdueTasks() {
     }
   }
 
-  const handleBulkAction = async (action: 'complete' | 'skip' | 'reschedule') => {
+async function handleDeleteInstance(taskId: string, missedDate?: string) {
+  if (!missedDate) {
+    alert('Cannot delete instance: missing date information')
+    return
+  }
+
+  if (!window.confirm('Permanently delete this occurrence? This cannot be undone.')) return
+
+  setProcessingTask(taskId)
+  try {
+    const response = await fetch('/api/tasks/delete-instance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskId, missedDate })
+    })
+
+    if (response.ok) {
+      await fetchOverdueTasks()
+    } else {
+      const data = await response.json()
+      alert(data.error || 'Failed to delete instance')
+    }
+  } catch (error) {
+    console.error('Error deleting instance:', error)
+    alert('Failed to delete instance')
+  } finally {
+    setProcessingTask(null)
+  }
+}
+
+  async function handleBulkAction(action: 'complete' | 'skip' | 'reschedule') {
     if (selectedTasks.size === 0) {
       alert('Please select tasks first')
       return
@@ -147,7 +177,7 @@ export default function OverdueTasks() {
     if (!window.confirm(confirmMessage[action])) return
 
     const taskIds = Array.from(selectedTasks)
-    
+
     try {
       const response = await fetch('/api/tasks/bulk-action', {
         method: 'POST',
