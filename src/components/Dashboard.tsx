@@ -670,6 +670,19 @@ const fetchTasks = async () => {
                             {task.points} pts
                           </span>
 
+                          {!isCompleted && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleCompleteTask(task.id, task.title)
+                              }}
+                              className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors flex items-center gap-1"
+                              title="Complete task"
+                            >
+                              <CheckCircle size={16} />
+                              Complete
+                            </button>
+                          )}
                           {!isCompleted && task.isRecurring && (
                             <button
                               onClick={(e) => {

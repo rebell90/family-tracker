@@ -212,9 +212,7 @@ export default function OverdueTasks() {
 
       let group = 'Older Tasks'
       
-      if (diffDays === 0) {
-        group = 'Today'
-      } else if (diffDays === 1) {
+      if (diffDays === 1) {
         group = 'Yesterday'
       } else if (diffDays <= 7) {
         group = 'Earlier This Week'
@@ -250,7 +248,7 @@ const groupOrder = ['Today', 'Yesterday', 'Earlier This Week', 'Last Week', 'Old
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <Link 
-                href="/dashboard" 
+                href="/"
                 className="text-gray-600 hover:text-gray-800 transition-colors"
               >
                 <ArrowLeft size={24} />
