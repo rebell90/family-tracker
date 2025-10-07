@@ -238,7 +238,7 @@ export default function OverdueTasks() {
   }
 
 const groupedTasks = groupTasksByDate(overdueTasks)
-const groupOrder = ['Today', 'Yesterday', 'Earlier This Week', 'Last Week', 'Older Tasks']
+const groupOrder = ['Yesterday', 'Earlier This Week', 'Last Week', 'Older Tasks']
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
@@ -412,14 +412,31 @@ const groupOrder = ['Today', 'Yesterday', 'Earlier This Week', 'Last Week', 'Old
                             >
                               {processingTask === task.id ? '...' : <X size={18} />}
                             </button>
-                            <input
-                              type="date"
-                              onChange={(e) => handleRescheduleTask(task.id, e.target.value)}
-                              disabled={processingTask === task.id}
-                              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                              title="Reschedule task"
-                              min={new Date().toISOString().split('T')[0]}
-                            />
+
+                            {/* IMPROVED DATE PICKER */}
+                            <div className="flex flex-col">
+                              <label className="text-xs text-gray-500 mb-1">Reschedule to:</label>
+                              <input
+                                type="date"
+                                onChange={(e) => handleRescheduleTask(task.id, e.target.value)}
+                                disabled={processingTask === task.id}
+                                className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                placeholder="Pick date"
+                                min={new Date().toISOString().split('T')[0]}
+                              />
+                            </div>
+
+                            {/* ADD DELETE INSTANCE BUTTON */}
+                            {task.isRecurring && (
+                              <button
+                                onClick={() => handleDeleteInstance(task.id, task.missedDate)}
+                                disabled={processingTask === task.id}
+                                className="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                                title="Delete this occurrence"
+                              >
+                                Delete
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))}

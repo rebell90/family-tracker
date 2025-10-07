@@ -285,32 +285,33 @@ const fetchTasks = async () => {
     }, {} as Record<string, Task[]>)
   }
 
-  const handleSkipTask = async (taskId: string, taskTitle: string) => {
-    const reason = window.prompt(`Why are you skipping "${taskTitle}"? (optional)`)
-    if (reason === null) return
-    
-    try {
-      const response = await fetch('/api/tasks/skip', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ taskId, reason })
-      })
+const handleSkipTask = async (taskId: string, taskTitle: string) => {
+  const reason = window.prompt(`Why are you skipping "${taskTitle}"? (optional)`)
+  if (reason === null) return // User cancelled
+  
+  try {
+    const response = await fetch('/api/tasks/skip', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ taskId, reason })
+    })
 
-      const data = await response.json()
+    const data = await response.json()
 
-      if (response.ok) {
-        alert('Task marked as not completed')
-        fetchTasks()
-      } else {
-        alert(data.error || 'Failed to skip task')
-      }
-    } catch (error) {
-      console.error('Error skipping task:', error)
-      alert('Failed to skip task')
+    if (response.ok) {
+      alert('Task skipped')
+      fetchTasks() // Refresh the tasks list
+      fetchOverdueCount() // Also refresh overdue count
+    } else {
+      alert(data.error || 'Failed to skip task')
     }
+  } catch (error) {
+    console.error('Error skipping task:', error)
+    alert('Failed to skip task')
   }
+}
 
   const yesterdaysMissed = getYesterdaysMissedTasks()
   const todaysTasks = getTasksForToday()
