@@ -217,7 +217,7 @@ export default function OverdueTasks() {
       } else if (diffDays === 1) {
         group = 'Yesterday'
       } else if (diffDays <= 7) {
-        group = 'This Week'
+        group = 'Earlier This Week'
       } else if (diffDays <= 14) {
         group = 'Last Week'
       }
@@ -239,8 +239,8 @@ export default function OverdueTasks() {
     )
   }
 
-  const groupedTasks = groupTasksByDate(overdueTasks)
-  const groupOrder = ['Today', 'Yesterday', 'This Week', 'Last Week', 'Older Tasks']
+const groupedTasks = groupTasksByDate(overdueTasks)
+const groupOrder = ['Today', 'Yesterday', 'Earlier This Week', 'Last Week', 'Older Tasks']
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
