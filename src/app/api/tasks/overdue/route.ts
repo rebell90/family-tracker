@@ -3,6 +3,32 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+// Add these type definitions
+type Task = {
+  id: string
+  title: string
+  description?: string | null
+  points: number
+  completedAt?: Date | null
+  timePeriod?: string | null
+  isRecurring: boolean
+  daysOfWeek: string[]
+  category?: string | null
+  assignedToId?: string | null
+  familyId: string
+  isActive: boolean
+  createdAt: Date
+  assignedTo?: {
+    id: string
+    name: string | null
+  } | null
+}
+
+type OverdueTask = Task & {
+  missedDate: string
+  occurrenceDate?: string
+}
+
 const DAYS_MAP: { [key: string]: number } = {
   SUNDAY: 0,
   MONDAY: 1,
@@ -52,7 +78,7 @@ export async function GET() {
       }
     })
 
-    const overdueTasks: any[] = []
+    const overdueTasks: OverdueTask[] = []  // FIXED
 
     for (const task of tasks) {
       if (task.isRecurring) {
@@ -98,7 +124,7 @@ export async function GET() {
   }
 }
 
-async function findMissedOccurrences(task: any, userId: string, today: Date) {
+async function findMissedOccurrences(task: Task, userId: string, today: Date) {  // FIXED
   const missedDates: Date[] = []
 
   // Look back up to 30 days for missed occurrences
