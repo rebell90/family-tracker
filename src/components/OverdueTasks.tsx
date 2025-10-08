@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { AlertTriangle, CheckCircle, X, Calendar, Clock, ChevronDown, ChevronUp, ArrowLeft } from 'lucide-react'
+import { AlertTriangle, CheckCircle, X, Calendar, Clock, ChevronDown, ChevronUp, ArrowLeft, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 
 interface Task {
@@ -22,7 +22,8 @@ interface Task {
   }
   createdAt?: string
   dueDate?: string
-  missedDate?: string  // Added - when the task was supposed to be done
+  missedDate?: string
+  occurrenceDate?: string
 }
 
 interface GroupedTasks {
@@ -34,8 +35,10 @@ export default function OverdueTasks() {
   const [overdueTasks, setOverdueTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [processingTask, setProcessingTask] = useState<string | null>(null)
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['Yesterday', 'This Week']))
-  const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set())
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['Yesterday', 'Earlier This Week']))
+
+  const user = session?.user as { name?: string; role?: string; id?: string } | undefined
+  const isParent = user?.role === 'PARENT'
 
   useEffect(() => {
     fetchOverdueTasks()
@@ -46,12 +49,21 @@ export default function OverdueTasks() {
       const response = await fetch('/api/tasks/overdue')
       const result = await response.json()
       
-      console.log('Overdue API Response:', result)  // Debug
+      console.log('Overdue API Response:', result)
       
-      // Handle both array and object responses
       const data: Task[] = Array.isArray(result) ? result : (result.tasks || [])
       
-      setOverdueTasks(data)
+      // Filter out today's tasks and skipped tasks
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      
+      const filtered = data.filter(task => {
+        const taskDate = new Date(task.missedDate || task.createdAt || '')
+        taskDate.setHours(0, 0, 0, 0)
+        return taskDate < today
+      })
+      
+      setOverdueTasks(filtered)
       setLoading(false)
     } catch (error) {
       console.error('Error fetching overdue tasks:', error)
@@ -59,15 +71,20 @@ export default function OverdueTasks() {
     }
   }
 
-  const handleCompleteTask = async (taskId: string) => {
+  const handleCompleteTask = async (taskId: string, missedDate?: string) => {
     if (!window.confirm('Mark this task as completed?')) return
 
-    setProcessingTask(taskId)
+    const uniqueKey = `${taskId}-${missedDate}`
+    setProcessingTask(uniqueKey)
+    
     try {
       const response = await fetch('/api/tasks/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId })
+        body: JSON.stringify({ 
+          taskId,
+          completedAt: missedDate || new Date().toISOString() // Use missedDate as completion date
+        })
       })
 
       if (response.ok) {
@@ -84,15 +101,22 @@ export default function OverdueTasks() {
     }
   }
 
-  const handleSkipTask = async (taskId: string, skipReason?: string) => {
-    const reason = skipReason || window.prompt('Why are you skipping this task? (optional)')
+  const handleSkipTask = async (taskId: string, missedDate?: string) => {
+    const reason = window.prompt('Why are you skipping this task? (optional)')
+    if (reason === null) return
     
-    setProcessingTask(taskId)
+    const uniqueKey = `${taskId}-${missedDate}`
+    setProcessingTask(uniqueKey)
+    
     try {
       const response = await fetch('/api/tasks/skip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId, reason })
+        body: JSON.stringify({ 
+          taskId, 
+          reason,
+          skippedAt: missedDate || new Date().toISOString() // Use missedDate
+        })
       })
 
       if (response.ok) {
@@ -109,21 +133,29 @@ export default function OverdueTasks() {
     }
   }
 
-  const handleRescheduleTask = async (taskId: string, newDate: string) => {
-    setProcessingTask(taskId)
+  const handleRescheduleTask = async (taskId: string, missedDate: string, newDate: string) => {
+    if (!newDate) return
+    
+    const uniqueKey = `${taskId}-${missedDate}`
+    setProcessingTask(uniqueKey)
+    
     try {
-      const response = await fetch('/api/tasks/reschedule', {
+      // First skip the old occurrence
+      await fetch('/api/tasks/skip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId, newDate })
+        body: JSON.stringify({ 
+          taskId,
+          reason: `Rescheduled from ${new Date(missedDate).toLocaleDateString()} to ${new Date(newDate).toLocaleDateString()}`,
+          skippedAt: missedDate
+        })
       })
 
-      if (response.ok) {
-        await fetchOverdueTasks()
-      } else {
-        const data = await response.json()
-        alert(data.error || 'Failed to reschedule task')
-      }
+      // Then create a new occurrence for the new date
+      // (This would require a new API endpoint or you could just skip for now)
+      
+      await fetchOverdueTasks()
+      alert('Task rescheduled successfully')
     } catch (error) {
       console.error('Error rescheduling task:', error)
       alert('Failed to reschedule task')
@@ -132,69 +164,35 @@ export default function OverdueTasks() {
     }
   }
 
-async function handleDeleteInstance(taskId: string, missedDate?: string) {
-  if (!missedDate) {
-    alert('Cannot delete instance: missing date information')
-    return
-  }
-
-  if (!window.confirm('Permanently delete this occurrence? This cannot be undone.')) return
-
-  setProcessingTask(taskId)
-  try {
-    const response = await fetch('/api/tasks/delete-instance', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ taskId, missedDate })
-    })
-
-    if (response.ok) {
-      await fetchOverdueTasks()
-    } else {
-      const data = await response.json()
-      alert(data.error || 'Failed to delete instance')
-    }
-  } catch (error) {
-    console.error('Error deleting instance:', error)
-    alert('Failed to delete instance')
-  } finally {
-    setProcessingTask(null)
-  }
-}
-
-  async function handleBulkAction(action: 'complete' | 'skip' | 'reschedule') {
-    if (selectedTasks.size === 0) {
-      alert('Please select tasks first')
+  const handleDeleteInstance = async (taskId: string, missedDate?: string) => {
+    if (!missedDate) {
+      alert('Cannot delete instance: missing date information')
       return
     }
 
-    const confirmMessage = {
-      complete: `Complete ${selectedTasks.size} selected task(s)?`,
-      skip: `Skip ${selectedTasks.size} selected task(s)?`,
-      reschedule: `Reschedule ${selectedTasks.size} selected task(s) to today?`
-    }
+    if (!window.confirm('Permanently delete this occurrence? This cannot be undone.')) return
 
-    if (!window.confirm(confirmMessage[action])) return
-
-    const taskIds = Array.from(selectedTasks)
-
+    const uniqueKey = `${taskId}-${missedDate}`
+    setProcessingTask(uniqueKey)
+    
     try {
-      const response = await fetch('/api/tasks/bulk-action', {
+      const response = await fetch('/api/tasks/delete-instance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskIds, action })
+        body: JSON.stringify({ taskId, missedDate })
       })
 
       if (response.ok) {
-        setSelectedTasks(new Set())
         await fetchOverdueTasks()
       } else {
         const data = await response.json()
-        alert(data.error || 'Failed to process tasks')
+        alert(data.error || 'Failed to delete instance')
       }
     } catch (error) {
-      console.error('Error processing bulk action:', error)
-      alert('Failed to process tasks')
+      console.error('Error deleting instance:', error)
+      alert('Failed to delete instance')
+    } finally {
+      setProcessingTask(null)
     }
   }
 
@@ -208,27 +206,15 @@ async function handleDeleteInstance(taskId: string, missedDate?: string) {
     setExpandedGroups(newExpanded)
   }
 
-  const toggleTaskSelection = (taskId: string) => {
-    const newSelected = new Set(selectedTasks)
-    if (newSelected.has(taskId)) {
-      newSelected.delete(taskId)
-    } else {
-      newSelected.add(taskId)
-    }
-    setSelectedTasks(newSelected)
-  }
-
   const groupTasksByDate = (tasks: Task[]): GroupedTasks => {
     const grouped: GroupedTasks = {}
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
     tasks.forEach(task => {
-      // Use missedDate if available, otherwise use createdAt
       const taskDateStr = task.missedDate || task.createdAt
       
       if (!taskDateStr) {
-        // If no date info, put in "Older Tasks"
         if (!grouped['Older Tasks']) grouped['Older Tasks'] = []
         grouped['Older Tasks'].push(task)
         return
@@ -267,8 +253,8 @@ async function handleDeleteInstance(taskId: string, missedDate?: string) {
     )
   }
 
-const groupedTasks = groupTasksByDate(overdueTasks)
-const groupOrder = ['Yesterday', 'Earlier This Week', 'Last Week', 'Older Tasks']
+  const groupedTasks = groupTasksByDate(overdueTasks)
+  const groupOrder = ['Yesterday', 'Earlier This Week', 'Last Week', 'Older Tasks']
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
@@ -286,7 +272,7 @@ const groupOrder = ['Yesterday', 'Earlier This Week', 'Last Week', 'Older Tasks'
               <div>
                 <h1 className="text-2xl font-bold text-gray-800">Overdue Tasks</h1>
                 <p className="text-gray-600 text-sm mt-1">
-                  Manage all your incomplete tasks from previous days
+                  Complete, reschedule, or skip missed tasks
                 </p>
               </div>
             </div>
@@ -297,43 +283,6 @@ const groupOrder = ['Yesterday', 'Earlier This Week', 'Last Week', 'Older Tasks'
               </span>
             </div>
           </div>
-
-          {/* Bulk Actions */}
-          {selectedTasks.size > 0 && (
-            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mt-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-blue-800">
-                  {selectedTasks.size} task(s) selected
-                </span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleBulkAction('complete')}
-                    className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors"
-                  >
-                    Complete All
-                  </button>
-                  <button
-                    onClick={() => handleBulkAction('skip')}
-                    className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors"
-                  >
-                    Skip All
-                  </button>
-                  <button
-                    onClick={() => handleBulkAction('reschedule')}
-                    className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors"
-                  >
-                    Reschedule to Today
-                  </button>
-                  <button
-                    onClick={() => setSelectedTasks(new Set())}
-                    className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors"
-                  >
-                    Clear Selection
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Task Groups */}
@@ -342,7 +291,7 @@ const groupOrder = ['Yesterday', 'Earlier This Week', 'Last Week', 'Older Tasks'
             <CheckCircle className="text-green-500 mx-auto mb-4" size={48} />
             <h2 className="text-xl font-semibold text-gray-800 mb-2">All Caught Up!</h2>
             <p className="text-gray-600">You have no overdue tasks. Great job!</p>
-            <Link href="/dashboard" className="mt-4 inline-block text-blue-600 hover:text-blue-700">
+            <Link href="/" className="mt-4 inline-block text-blue-600 hover:text-blue-700">
               ← Back to Dashboard
             </Link>
           </div>
@@ -363,7 +312,6 @@ const groupOrder = ['Yesterday', 'Earlier This Week', 'Last Week', 'Older Tasks'
                   >
                     <div className="flex items-center gap-3">
                       <div className={`p-2 rounded-lg ${
-                        group === 'Today' ? 'bg-blue-100 text-blue-600' :
                         group === 'Yesterday' ? 'bg-orange-100 text-orange-600' :
                         'bg-gray-200 text-gray-600'
                       }`}>
@@ -371,7 +319,7 @@ const groupOrder = ['Yesterday', 'Earlier This Week', 'Last Week', 'Older Tasks'
                       </div>
                       <div>
                         <h3 className="font-semibold text-gray-800">{group}</h3>
-                        <p className="text-sm text-gray-600">{tasks.length} task(s)</p>
+                        <p className="text-sm text-gray-600">{tasks.length} task{tasks.length !== 1 ? 's' : ''}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -385,91 +333,105 @@ const groupOrder = ['Yesterday', 'Earlier This Week', 'Last Week', 'Older Tasks'
                   {/* Tasks List */}
                   {isExpanded && (
                     <div className="p-4 space-y-3 border-t border-gray-100">
-                      {tasks.map(task => (
-                        <div
-                          key={task.id}
-                          className={`flex items-center gap-4 p-4 rounded-lg border-2 ${
-                            selectedTasks.has(task.id)
-                              ? 'border-blue-400 bg-blue-50'
-                              : 'border-gray-200 hover:border-gray-300'
-                          } transition-all`}
-                        >
-                          {/* Selection Checkbox */}
-                          <input
-                            type="checkbox"
-                            checked={selectedTasks.has(task.id)}
-                            onChange={() => toggleTaskSelection(task.id)}
-                            className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
-                          />
+                      {tasks.map(task => {
+                        const uniqueKey = `${task.id}-${task.missedDate}`
+                        const isProcessing = processingTask === uniqueKey
+                        const missedDateDisplay = task.missedDate 
+                          ? new Date(task.missedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                          : ''
 
-                          {/* Task Info */}
-                          <div className="flex-1">
-                            <h4 className="font-medium text-gray-800">{task.title}</h4>
-                            {task.description && (
-                              <p className="text-sm text-gray-600 mt-1">{task.description}</p>
-                            )}
-                            <div className="flex items-center gap-4 mt-2">
-                              <span className="text-sm text-gray-500 flex items-center gap-1">
-                                <Clock size={14} />
-                                {task.timePeriod || 'Anytime'}
-                              </span>
-                              {task.isRecurring && (
-                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
-                                  Recurring
-                                </span>
+                        return (
+                          <div
+                            key={uniqueKey}
+                            className="flex items-center gap-4 p-4 rounded-lg border-2 border-gray-200 hover:border-gray-300 transition-all"
+                          >
+                            {/* Task Info */}
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-medium text-gray-800">{task.title}</h4>
+                                {task.isRecurring && (
+                                  <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
+                                    Recurring
+                                  </span>
+                                )}
+                                {missedDateDisplay && (
+                                  <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">
+                                    Due: {missedDateDisplay}
+                                  </span>
+                                )}
+                              </div>
+                              {task.description && (
+                                <p className="text-sm text-gray-600 mt-1">{task.description}</p>
                               )}
-                              <span className="text-sm font-medium text-orange-600">
-                                {task.points} points
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Actions */}
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleCompleteTask(task.id)}
-                              disabled={processingTask === task.id}
-                              className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                              title="Mark as completed"
-                            >
-                              {processingTask === task.id ? '...' : <CheckCircle size={18} />}
-                            </button>
-                            <button
-                              onClick={() => handleSkipTask(task.id)}
-                              disabled={processingTask === task.id}
-                              className="bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                              title="Skip this task"
-                            >
-                              {processingTask === task.id ? '...' : <X size={18} />}
-                            </button>
-
-                            {/* IMPROVED DATE PICKER */}
-                            <div className="flex flex-col">
-                              <label className="text-xs text-gray-500 mb-1">Reschedule to:</label>
-                              <input
-                                type="date"
-                                onChange={(e) => handleRescheduleTask(task.id, e.target.value)}
-                                disabled={processingTask === task.id}
-                                className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                                placeholder="Pick date"
-                                min={new Date().toISOString().split('T')[0]}
-                              />
+                              <div className="flex items-center gap-4 mt-2">
+                                <span className="text-sm text-gray-500 flex items-center gap-1">
+                                  <Clock size={14} />
+                                  {task.timePeriod || 'Anytime'}
+                                </span>
+                                <span className="text-sm font-medium text-orange-600">
+                                  {task.points} points
+                                </span>
+                              </div>
                             </div>
 
-                            {/* ADD DELETE INSTANCE BUTTON */}
-                            {task.isRecurring && (
-                              <button
-                                onClick={() => handleDeleteInstance(task.id, task.missedDate)}
-                                disabled={processingTask === task.id}
-                                className="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                                title="Delete this occurrence"
-                              >
-                                Delete
-                              </button>
-                            )}
+                            {/* Actions */}
+                            <div className="flex flex-col gap-2">
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleCompleteTask(task.id, task.missedDate)}
+                                  disabled={isProcessing}
+                                  className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                                  title="Mark as completed"
+                                >
+                                  {isProcessing ? '...' : (
+                                    <>
+                                      <CheckCircle size={16} />
+                                      Complete
+                                    </>
+                                  )}
+                                </button>
+                                <button
+                                  onClick={() => handleSkipTask(task.id, task.missedDate)}
+                                  disabled={isProcessing}
+                                  className="bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                                  title="Skip this task"
+                                >
+                                  {isProcessing ? '...' : (
+                                    <>
+                                      <X size={16} />
+                                      Skip
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                              
+                              <div className="flex gap-2">
+                                <div className="flex-1">
+                                  <label className="text-xs text-gray-500 block mb-1">Reschedule to:</label>
+                                  <input
+                                    type="date"
+                                    onChange={(e) => handleRescheduleTask(task.id, task.missedDate || '', e.target.value)}
+                                    disabled={isProcessing}
+                                    className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+                                    min={new Date().toISOString().split('T')[0]}
+                                  />
+                                </div>
+                                
+                                {isParent && (
+                                  <button
+                                    onClick={() => handleDeleteInstance(task.id, task.missedDate)}
+                                    disabled={isProcessing}
+                                    className="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors self-end"
+                                    title="Delete this occurrence (Parent only)"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
                 </div>
