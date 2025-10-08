@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+// ADD THESE TYPES
 interface AuthSession {
   user: {
     id: string;
@@ -13,15 +14,20 @@ interface AuthSession {
   }
 }
 
+interface CompleteTaskRequest {
+  taskId: string;
+  completedAt?: string;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions) as AuthSession | null
+    const session = await getServerSession(authOptions) as AuthSession | null  // TYPE IT
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { taskId, completedAt } = await request.json()
+    const { taskId, completedAt: requestedCompletionDate } = await request.json() as CompleteTaskRequest  // TYPE IT
 
     // Get the task and verify family access
     const task = await prisma.task.findUnique({
@@ -64,15 +70,17 @@ const completion = await prisma.taskCompletion.create({
   data: {
     taskId: task.id,
     userId: user.id,
-    completedAt: completedAt ? new Date(completedAt) : new Date()  // Use provided date
+    completedAt: requestedCompletionDate ? new Date(requestedCompletionDate) : new Date()  // USE NEW NAME
   }
 })
 
-        // If it's not a recurring task, mark it as completed
+    // If it's not a recurring task, mark it as completed
     if (!task.isRecurring) {
       await prisma.task.update({
         where: { id: taskId },
-        data: { completedAt: new Date() }
+        data: {
+          completedAt: requestedCompletionDate ? new Date(requestedCompletionDate) : new Date()  // USE NEW NAME HERE TOO
+        }
       })
     }
 
