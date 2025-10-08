@@ -60,6 +60,15 @@ export default function OverdueTasks() {
       const filtered = data.filter(task => {
         const taskDate = new Date(task.missedDate || task.createdAt || '')
         taskDate.setHours(0, 0, 0, 0)
+
+        //DEBUG
+        console.log('Task:', task.title, {
+          missedDate: task.missedDate,
+          createdAt: task.createdAt,
+          taskDate: taskDate.toISOString(),
+          today: today.toISOString(),
+          isBeforeToday: taskDate < today
+        })
         return taskDate < today
       })
       

@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { taskId } = await request.json()
+    const { taskId, completedAt } = await request.json()
 
     // Get the task and verify family access
     const task = await prisma.task.findUnique({
@@ -60,13 +60,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Create completion record
-    const completion = await prisma.taskCompletion.create({
-      data: {
-        taskId: task.id,
-        userId: user.id,
-        completedAt: new Date()
-      }
-    })
+const completion = await prisma.taskCompletion.create({
+  data: {
+    taskId: task.id,
+    userId: user.id,
+    completedAt: completedAt ? new Date(completedAt) : new Date()  // Use provided date
+  }
+})
+
+        // If it's not a recurring task, mark it as completed
+    if (!task.isRecurring) {
+      await prisma.task.update({
+        where: { id: taskId },
+        data: { completedAt: new Date() }
+      })
+    }
 
     // Update or create user points
     let userPoints = await prisma.userPoints.findUnique({
