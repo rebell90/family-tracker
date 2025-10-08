@@ -718,7 +718,7 @@ const handleSkipTask = async (taskId: string, taskTitle: string) => {
                                 e.stopPropagation()
                                 handleSkipTask(task.id, task.title)
                               }}
-                              className="text-orange-500 hover:text-orange-600 text-sm font-medium"
+                              className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded-lg text-sm font-medium"
                               title="Skip today"
                             >
                               Skip
