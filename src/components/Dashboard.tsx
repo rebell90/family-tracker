@@ -594,10 +594,11 @@ const handleSkipTask = async (taskId: string, taskTitle: string) => {
 
           {Object.entries(TIME_PERIODS).map(([periodKey, periodInfo]) => {
             const periodTasks = tasksByPeriod[periodKey] || []
+            const visibleTasks = periodTasks.filter(t => !t.skippedToday)  // ADD THIS
             const isCurrentPeriod = periodKey === currentPeriod
             const IconComponent = periodInfo.icon
 
-            if (periodTasks.length === 0) return null          
+            if (visibleTasks.length === 0) return null           
 
             return (
               <div 
@@ -628,7 +629,7 @@ const handleSkipTask = async (taskId: string, taskTitle: string) => {
                       </div>
                     </div>
                     <span className="text-sm text-gray-500">
-                      {periodTasks.length} task{periodTasks.length !== 1 ? 's' : ''}
+                      {visibleTasks.length} task{visibleTasks.length !== 1 ? 's' : ''}
                     </span>
                   </div>
                 </div>
