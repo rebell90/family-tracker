@@ -16,6 +16,7 @@ interface Task {
   points: number
   completedAt?: Date | null
   completedToday?: boolean
+  skippedToday?: boolean  // ADD THIS
   timePeriod?: string
   isRecurring: boolean
   daysOfWeek: string[]
@@ -122,24 +123,31 @@ export default function Dashboard() {
 const fetchTasks = async () => {
   try {
     const response = await fetch('/api/tasks')
-    const result = await response.json()  // Don't assume it's an array yet
+    const result = await response.json()
     
-    console.log('API Response:', result)  // DEBUG - see what we actually get
+    console.log('API Response:', result)
     
-    // Handle different possible response structures
     const data: Task[] = Array.isArray(result) ? result : (result.tasks || [])
     
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     
+    // Get today's completions
     const completionsResponse = await fetch('/api/tasks/todays-completions')
     const todaysCompletions: TaskCompletion[] = await completionsResponse.json()
     const completedTodayIds = new Set(todaysCompletions.map((c) => c.taskId))
     
+    // GET TODAY'S SKIPS - ADD THIS
+    const skipsResponse = await fetch('/api/tasks/todays-skips')
+    const todaysSkips = await skipsResponse.json()
+    const skippedTodayIds = new Set(todaysSkips.map((s: any) => s.taskId))
+    
+    // Mark tasks as completed today OR skipped today
     const tasksWithTodayStatus = data.map((task) => ({
       ...task,
       completedToday: completedTodayIds.has(task.id) || 
-                      Boolean(task.completedAt && new Date(task.completedAt) >= today)
+                      Boolean(task.completedAt && new Date(task.completedAt) >= today),
+      skippedToday: skippedTodayIds.has(task.id)  // ADD THIS
     }))
     
     setTasks(tasksWithTodayStatus)
@@ -244,20 +252,22 @@ const fetchTasks = async () => {
     return 'ANYTIME'
   }
 
-  const getYesterdaysMissedTasks = () => {
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-    const dayOfWeek = yesterday.getDay()
-    const dayName = Object.keys(DAYS_MAP)[Object.values(DAYS_MAP).indexOf(dayOfWeek)]
+const getYesterdaysMissedTasks = () => {
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  const dayOfWeek = yesterday.getDay()
+  const dayName = Object.keys(DAYS_MAP)[Object.values(DAYS_MAP).indexOf(dayOfWeek)]
 
-    return tasks.filter(task => {
-      if (task.completedAt || task.completedToday) return false
-      
-      if (!task.isRecurring) return true
-      if (task.daysOfWeek.length === 0) return true
-      return task.daysOfWeek.includes(dayName)
-    })
-  }
+  return tasks.filter(task => {
+    // Filter out completed, skipped today, or already completed
+    if (task.completedAt || task.completedToday || task.skippedToday) return false  // UPDATED
+    
+    // Check if task was scheduled for yesterday
+    if (!task.isRecurring) return true
+    if (task.daysOfWeek.length === 0) return true
+    return task.daysOfWeek.includes(dayName)
+  })
+}
 
   const getTasksForToday = () => {
     const today = new Date().getDay()
@@ -287,7 +297,9 @@ const fetchTasks = async () => {
 
 const handleSkipTask = async (taskId: string, taskTitle: string) => {
   const reason = window.prompt(`Why are you skipping "${taskTitle}"? (optional)`)
-  if (reason === null) return // User cancelled
+  if (reason === null) return
+  
+  console.log('Skipping task:', taskId, 'with reason:', reason)  // ADD THIS
   
   try {
     const response = await fetch('/api/tasks/skip', {
@@ -298,12 +310,15 @@ const handleSkipTask = async (taskId: string, taskTitle: string) => {
       body: JSON.stringify({ taskId, reason })
     })
 
+    console.log('Skip response status:', response.status)  // ADD THIS
     const data = await response.json()
+    console.log('Skip response data:', data)  // ADD THIS
 
     if (response.ok) {
       alert('Task skipped')
-      fetchTasks() // Refresh the tasks list
-      fetchOverdueCount() // Also refresh overdue count
+      console.log('Calling fetchTasks after skip')  // ADD THIS
+      fetchTasks()
+      fetchOverdueCount()
     } else {
       alert(data.error || 'Failed to skip task')
     }
@@ -620,13 +635,20 @@ const handleSkipTask = async (taskId: string, taskTitle: string) => {
                           (task.completedAt !== null && 
                           task.completedAt !== undefined
                           )
+                         const isSkipped = task.skippedToday === true 
+
                     console.log('Task Debug:', {
                       title: task.title,
                       completedToday: task.completedToday,
+                      skippedToday: task.skippedToday,
                       completedAt: task.completedAt,
                       completedAtType: typeof task.completedAt,
-                      isCompleted: isCompleted
+                      isCompleted: isCompleted,
+                      isSkipped: isSkipped
                     })
+
+                    if (isSkipped) return null
+
                     return (
                       <div
                         key={task.id}
