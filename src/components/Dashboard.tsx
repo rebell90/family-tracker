@@ -40,6 +40,11 @@ interface TaskCompletion {
   userId: string
 }
 
+interface TaskSkip {
+  taskId: string
+  skippedAt: Date
+}
+
 const TIME_PERIODS = {
   MORNING: { 
     label: 'Morning', 
@@ -140,7 +145,7 @@ const fetchTasks = async () => {
     // GET TODAY'S SKIPS - ADD THIS
     const skipsResponse = await fetch('/api/tasks/todays-skips')
     const todaysSkips = await skipsResponse.json()
-    const skippedTodayIds = new Set(todaysSkips.map((s: any) => s.taskId))
+    const skippedTodayIds = new Set(todaysSkips.map((s: TaskSkip) => s.taskId))
     
     // Mark tasks as completed today OR skipped today
     const tasksWithTodayStatus = data.map((task) => ({
