@@ -12,6 +12,7 @@ interface AuthSession {
   }
 }
 
+// GET handler for fetching all task completions
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions) as AuthSession | null
