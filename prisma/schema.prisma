@@ -100,13 +100,14 @@ model Task {
   updatedAt   DateTime     @updatedAt
   completedAt DateTime?
   dueDate     DateTime?
+  recurringEndDate DateTime?
 
   // Relations
   createdBy   User               @relation("TaskCreator", fields: [createdById], references: [id])
   assignedTo  User?              @relation("TaskAssignee", fields: [assignedToId], references: [id])
   family      Family             @relation(fields: [familyId], references: [id])
   completions TaskCompletion[]
-  skips       TaskSkip[]       // Add this relation
+  skips       TaskSkip[]       
 
   @@map("tasks")
 }
@@ -167,6 +168,7 @@ model Reward {
   familyId      String
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  isReusable    Boolean  @default(true)
 
   // Relations
   createdBy   User               @relation(fields: [createdById], references: [id])
