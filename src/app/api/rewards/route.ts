@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
           select: { id: true, name: true }
         },
         redemptions: {
-          where: { approved: false },
+          // UPDATED: Get ALL redemptions to check if one-time rewards were claimed
           include: {
             user: {
               select: { id: true, name: true }
@@ -42,7 +42,26 @@ export async function GET(request: NextRequest) {
       orderBy: { pointsRequired: 'asc' }
     })
 
-    return NextResponse.json({ rewards })
+    // ⭐ NEW: Filter out one-time rewards that the current user has already redeemed
+    const availableRewards = rewards.filter(reward => {
+      // If it's reusable, always show it
+      if (reward.isReusable) return true
+      
+      // If it's one-time, only show if the current user hasn't redeemed it yet
+      const hasUserRedeemed = reward.redemptions.some(
+        redemption => redemption.userId === user.id
+      )
+      
+      return !hasUserRedeemed
+    })
+
+    // NEW: For each reward, add info about pending redemptions (for parent view)
+    const rewardsWithPendingInfo = availableRewards.map(reward => ({
+      ...reward,
+      pendingRedemptions: reward.redemptions.filter(r => !r.approved)
+    }))
+
+    return NextResponse.json({ rewards: rewardsWithPendingInfo })
   } catch (error) {
     console.error('Error fetching rewards:', error)
     return NextResponse.json({ error: 'Failed to fetch rewards' }, { status: 500 })
@@ -66,7 +85,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Only parents can create rewards' }, { status: 403 })
     }
 
-    const { title, description, pointsRequired } = await request.json()
+    // UPDATED: Extract isReusable from request body
+    const { 
+      title, 
+      description, 
+      pointsRequired,
+      isReusable = true  
+    } = await request.json()
 
     if (!user.familyId) {
       return NextResponse.json({ error: 'No family found' }, { status: 400 })
@@ -77,6 +102,7 @@ export async function POST(request: NextRequest) {
         title,
         description,
         pointsRequired: parseInt(pointsRequired),
+        isReusable,
         createdById: user.id,
         familyId: user.familyId
       },

@@ -77,7 +77,8 @@ export async function GET(request: NextRequest) {
         completedToday: completedToday,
         isRecurring: task.isRecurring,
         daysOfWeek: task.daysOfWeek,
-        timePeriod: task.timePeriod
+        timePeriod: task.timePeriod,
+        recurringEndDate: task.recurringEndDate // NEW: Include end date in response
       }
     })
 
@@ -117,7 +118,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     console.log('Request body:', body)
     
-    const { title, description, points, category, assignedToId, isRecurring, daysOfWeek, timePeriod } = body
+    //  NEW: Extract recurringEndDate from request body
+    const { 
+      title, 
+      description, 
+      points, 
+      category, 
+      assignedToId, 
+      isRecurring, 
+      daysOfWeek, 
+      timePeriod,
+      recurringEndDate
+    } = body
 
     // Create family if it doesn't exist
     let familyId = user.familyId
@@ -138,6 +150,21 @@ export async function POST(request: NextRequest) {
       console.log('Created family:', familyId)
     }
 
+    // NEW: Validate and process end date
+    let endDate = null
+    if (isRecurring && recurringEndDate) {
+      endDate = new Date(recurringEndDate)
+      
+      // Ensure end date is in the future
+      if (endDate <= new Date()) {
+        return NextResponse.json({ 
+          error: 'End date must be in the future' 
+        }, { status: 400 })
+      }
+      
+      console.log('Task will end on:', endDate.toISOString())
+    }
+
     console.log('Creating task with familyId:', familyId, 'category:', category)
 
     const task = await prisma.task.create({
@@ -151,7 +178,8 @@ export async function POST(request: NextRequest) {
         familyId,
         isRecurring: isRecurring || false,
         daysOfWeek: daysOfWeek || [],
-        timePeriod: timePeriod || 'ANYTIME'
+        timePeriod: timePeriod || 'ANYTIME',
+        recurringEndDate: endDate
       },
       include: {
         assignedTo: {
