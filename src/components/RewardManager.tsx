@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { Gift, Plus, Star, Check, X, Edit2, Trash2 } from 'lucide-react'
+import { Gift, Plus, Star, Check, X, Edit2, Trash2, RotateCcw, ShoppingBag } from 'lucide-react'
 
 // Define interfaces at the top
 interface Reward {
@@ -10,6 +10,7 @@ interface Reward {
   title: string;
   description?: string;
   pointsRequired: number;
+  isReusable: boolean;  //  NEW
   createdBy: {
     name: string;
   };
@@ -37,20 +38,21 @@ export default function RewardManager() {
   const [newReward, setNewReward] = useState({
     title: '',
     description: '',
-    pointsRequired: 10
+    pointsRequired: 10,
+    isReusable: true  //  NEW: Defaults to reusable
   })
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
 
-const user = session?.user as { name?: string; role?: string } | undefined
-const isParent = user?.role === 'PARENT'
+  const user = session?.user as { name?: string; role?: string } | undefined
+  const isParent = user?.role === 'PARENT'
 
   useEffect(() => {
     fetchRewards()
     if (!isParent) {
       fetchMyRedemptions()
     }
-  }, [isParent]) // Added isParent to dependency array
+  }, [isParent])
 
   const fetchRewards = async () => {
     try {
@@ -87,14 +89,14 @@ const isParent = user?.role === 'PARENT'
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newReward),
+        body: JSON.stringify(newReward),  // ⭐ Already includes isReusable
       })
 
       const data = await response.json()
 
       if (response.ok) {
         setMessage('Reward created successfully!')
-        setNewReward({ title: '', description: '', pointsRequired: 10 })
+        setNewReward({ title: '', description: '', pointsRequired: 10, isReusable: true })  // ⭐ Reset with default
         setShowCreateForm(false)
         fetchRewards()
       } else {
@@ -133,7 +135,8 @@ const isParent = user?.role === 'PARENT'
     setNewReward({
       title: reward.title,
       description: reward.description || '',
-      pointsRequired: reward.pointsRequired
+      pointsRequired: reward.pointsRequired,
+      isReusable: reward.isReusable  // ⭐ Include in edit
     })
     setShowCreateForm(true)
   }
@@ -151,14 +154,14 @@ const isParent = user?.role === 'PARENT'
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newReward),
+        body: JSON.stringify(newReward),  // ⭐ Already includes isReusable
       })
 
       const data = await response.json()
 
       if (response.ok) {
         setMessage('Reward updated successfully!')
-        setNewReward({ title: '', description: '', pointsRequired: 10 })
+        setNewReward({ title: '', description: '', pointsRequired: 10, isReusable: true })  // ⭐ Reset
         setShowCreateForm(false)
         setEditingReward(null)
         fetchRewards()
@@ -175,7 +178,7 @@ const isParent = user?.role === 'PARENT'
 
   const cancelEdit = () => {
     setEditingReward(null)
-    setNewReward({ title: '', description: '', pointsRequired: 10 })
+    setNewReward({ title: '', description: '', pointsRequired: 10, isReusable: true })  // ⭐ Reset
     setShowCreateForm(false)
   }
 
@@ -320,6 +323,104 @@ const isParent = user?.role === 'PARENT'
                 />
               </div>
 
+              {/*  NEW: Reward Type Selection */}
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-900 mb-3">
+                  Reward Type
+                </label>
+                
+                <div className="grid md:grid-cols-2 gap-3">
+                  {/* Reusable Reward Option */}
+                  <button
+                    type="button"
+                    onClick={() => setNewReward({ ...newReward, isReusable: true })}
+                    className={`p-4 rounded-lg border-2 transition-all text-left ${
+                      newReward.isReusable
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`p-2 rounded-lg ${
+                        newReward.isReusable ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        <RotateCcw size={20} />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-semibold text-gray-900 mb-1">
+                          Reusable Reward
+                        </div>
+                        <p className="text-sm text-gray-600">
+                          Can be redeemed multiple times
+                        </p>
+                        <div className="mt-2 text-xs text-gray-500 space-y-1">
+                          <div>✓ 30 min iPad time</div>
+                          <div>✓ Choose dinner</div>
+                          <div>✓ Stay up late</div>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* One-Time Reward Option */}
+                  <button
+                    type="button"
+                    onClick={() => setNewReward({ ...newReward, isReusable: false })}
+                    className={`p-4 rounded-lg border-2 transition-all text-left ${
+                      !newReward.isReusable
+                        ? 'border-purple-500 bg-purple-50'
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`p-2 rounded-lg ${
+                        !newReward.isReusable ? 'bg-purple-500 text-white' : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        <ShoppingBag size={20} />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-semibold text-gray-900 mb-1">
+                          One-Time Reward
+                        </div>
+                        <p className="text-sm text-gray-600">
+                          Can only be redeemed once
+                        </p>
+                        <div className="mt-2 text-xs text-gray-500 space-y-1">
+                          <div>✓ New toy purchase</div>
+                          <div>✓ Trip to theme park</div>
+                          <div>✓ Special birthday gift</div>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Explanation based on selection */}
+                <div className={`p-3 rounded-lg text-sm ${
+                  newReward.isReusable 
+                    ? 'bg-blue-50 text-blue-800 border border-blue-200'
+                    : 'bg-purple-50 text-purple-800 border border-purple-200'
+                }`}>
+                  <div className="flex items-start gap-2">
+                    <Gift size={16} className="mt-0.5 flex-shrink-0" />
+                    <div>
+                      {newReward.isReusable ? (
+                        <>
+                          <strong>Routine Reward:</strong> This reward will stay available after being 
+                          redeemed. Great for privileges and experiences that can be earned repeatedly.
+                        </>
+                      ) : (
+                        <>
+                          <strong>Wishlist Item:</strong> This reward will disappear after 
+                          redemption and won't appear in the rewards list anymore. Perfect for physical 
+                          items or one-time experiences.
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <button
                 type="submit"
                 disabled={loading}
@@ -349,8 +450,23 @@ const isParent = user?.role === 'PARENT'
             <h3 className="font-semibold text-gray-800 mb-2">{reward.title}</h3>
             
             {reward.description && (
-              <p className="text-sm text-gray-600 mb-4">{reward.description}</p>
+              <p className="text-sm text-gray-600 mb-3">{reward.description}</p>
             )}
+
+            {/*  NEW: Reward Type Badge */}
+            <div className="mb-3">
+              {reward.isReusable ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-medium">
+                  <RotateCcw size={12} />
+                  Reusable
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-100 text-purple-800 text-xs font-medium">
+                  <ShoppingBag size={12} />
+                  One-Time
+                </span>
+              )}
+            </div>
 
             <div className="text-xs text-gray-700 mb-4 font-medium">
               Created by {reward.createdBy.name}
@@ -385,20 +501,20 @@ const isParent = user?.role === 'PARENT'
                 {reward.redemptions.map((redemption) => (
                   <div key={redemption.id} className="flex items-center justify-between text-sm">
                     <span className="text-orange-700">{redemption.user.name}</span>
-                      <div className="flex gap-1">
-                        <button 
-                          onClick={() => handleApproval(redemption.id, true)}
-                          className="text-green-600 hover:text-green-700"
-                        >
-                            <Check size={16} />
-                        </button>
-                        <button 
-                          onClick={() => handleApproval(redemption.id, false)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                            <X size={16} />
-                        </button>
-                      </div>
+                    <div className="flex gap-1">
+                      <button 
+                        onClick={() => handleApproval(redemption.id, true)}
+                        className="text-green-600 hover:text-green-700"
+                      >
+                        <Check size={16} />
+                      </button>
+                      <button 
+                        onClick={() => handleApproval(redemption.id, false)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

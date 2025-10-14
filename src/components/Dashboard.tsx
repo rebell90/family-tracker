@@ -21,6 +21,7 @@ interface Task {
   isRecurring: boolean
   daysOfWeek: string[]
   category?: string
+  recurringEndDate?: string | null
   assignedTo?: {
     id: string
     name: string
@@ -124,6 +125,39 @@ export default function Dashboard() {
       fetchOverdueCount()
     }
   }, [session])
+
+    const isTaskActive = (task: Task): boolean => {
+    if (!task.isRecurring) return true
+    if (!task.recurringEndDate) return true
+    
+    const endDate = new Date(task.recurringEndDate)
+    endDate.setHours(23, 59, 59, 999)
+    const now = new Date()
+    
+    return now <= endDate
+  }
+
+  const getEndDateStatus = (task: Task) => {
+    if (!task.isRecurring || !task.recurringEndDate) return null
+    
+    const endDate = new Date(task.recurringEndDate)
+    const now = new Date()
+    const daysRemaining = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    
+    if (daysRemaining < 0) {
+      return { text: 'Expired', color: 'bg-gray-100 text-gray-600', icon: '⏰' }
+    }
+    if (daysRemaining === 0) {
+      return { text: 'Last day!', color: 'bg-orange-100 text-orange-700', icon: '⚠️' }
+    }
+    if (daysRemaining <= 3) {
+      return { text: `${daysRemaining} days left`, color: 'bg-orange-100 text-orange-700', icon: '⚠️' }
+    }
+    if (daysRemaining <= 7) {
+      return { text: `${daysRemaining} days left`, color: 'bg-yellow-100 text-yellow-700', icon: '📅' }
+    }
+    return { text: `Ends ${endDate.toLocaleDateString()}`, color: 'bg-blue-100 text-blue-700', icon: '📅' }
+  }
 
 const fetchTasks = async () => {
   try {
@@ -279,6 +313,8 @@ const getYesterdaysMissedTasks = () => {
     const dayName = Object.keys(DAYS_MAP)[Object.values(DAYS_MAP).indexOf(today)]
 
     return tasks.filter(task => {
+
+      if (!isTaskActive(task)) return false
       if (!task.isRecurring) return true
       
       if (task.isRecurring && task.daysOfWeek.length > 0) {
@@ -679,9 +715,21 @@ const handleSkipTask = async (taskId: string, taskTitle: string) => {
                           </div>
 
                           <div className="flex-1">
-                            <h4 className={`font-medium ${isCompleted ? 'text-gray-500 line-through' : 'text-gray-800'}`}>
-                              {task.title}
-                            </h4>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className={`font-medium ${isCompleted ? 'text-gray-500 line-through' : 'text-gray-800'}`}>
+                                {task.title}
+                              </h4>
+                              {/* ADD THIS BADGE */}
+                              {(() => {
+                                const endStatus = getEndDateStatus(task)
+                                if (!endStatus) return null
+                                return (
+                                  <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${endStatus.color}`}>
+                                    {endStatus.icon} {endStatus.text}
+                                  </span>
+                                )
+                              })()}
+                            </div>
                             {task.description && (
                               <p className={`text-sm ${isCompleted ? 'text-gray-400' : 'text-gray-600'}`}>
                                 {task.description}
@@ -760,34 +808,45 @@ const handleSkipTask = async (taskId: string, taskTitle: string) => {
         </div>
 
         {/* Quick Actions for Parents */}
-        {isParent && (
-          <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <button 
-                onClick={() => setShowFamilyManager(true)}
-                className="p-4 text-left rounded-lg border border-gray-200 hover:border-blue-300 transition-colors"
-              >
-                <h3 className="font-medium text-gray-800">Manage Family</h3>
-                <p className="text-sm text-gray-600 mt-1">Invite family members and manage accounts</p>
-              </button>
-              <button 
-                onClick={() => setShowTaskManager(true)}
-                className="p-4 text-left rounded-lg border border-gray-200 hover:border-purple-300 transition-colors"
-              >
-                <h3 className="font-medium text-gray-800">Manage Tasks</h3>
-                <p className="text-sm text-gray-600 mt-1">Add, edit, or remove family tasks</p>
-              </button>
-              <button 
-                onClick={() => setShowRewardManager(true)}
-                className="p-4 text-left rounded-lg border border-gray-200 hover:border-purple-300 transition-colors"
-              >
-                <h3 className="font-medium text-gray-800">Manage Rewards</h3>
-                <p className="text-sm text-gray-600 mt-1">Create and manage family rewards</p>
-              </button>
-            </div>
-          </div>
-        )}
+{isParent && (
+  <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    <h2 className="text-xl font-semibold text-gray-800 mb-4">Quick Actions</h2>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <button 
+        onClick={() => setShowFamilyManager(true)}
+        className="p-4 text-left rounded-lg border border-gray-200 hover:border-blue-300 transition-colors"
+      >
+        <h3 className="font-medium text-gray-800">Manage Family</h3>
+        <p className="text-sm text-gray-600 mt-1">Invite family members and manage accounts</p>
+      </button>
+      
+      <button 
+        onClick={() => setShowTaskManager(true)}
+        className="p-4 text-left rounded-lg border border-gray-200 hover:border-purple-300 transition-colors"
+      >
+        <h3 className="font-medium text-gray-800">Manage Tasks</h3>
+        <p className="text-sm text-gray-600 mt-1">Add, edit, or remove family tasks</p>
+      </button>
+      
+      <button 
+        onClick={() => setShowRewardManager(true)}
+        className="p-4 text-left rounded-lg border border-gray-200 hover:border-purple-300 transition-colors"
+      >
+        <h3 className="font-medium text-gray-800">Manage Rewards</h3>
+        <p className="text-sm text-gray-600 mt-1">Create and manage family rewards</p>
+      </button>
+      
+      {/* ⭐ NEW: Manage Completions Link */}
+      <Link
+        href="/manage-completions"
+        className="p-4 text-left rounded-lg border border-gray-200 hover:border-red-300 transition-colors block"
+      >
+        <h3 className="font-medium text-gray-800">Manage Completions</h3>
+        <p className="text-sm text-gray-600 mt-1">View and delete task completion history</p>
+      </Link>
+    </div>
+  </div>
+)}
       </div>
     </div>
   )

@@ -24,6 +24,7 @@ interface Task {
   daysOfWeek: string[]
   timePeriod?: string
   isActive: boolean
+  recurringEndDate?: string | null  //  NEW
 }
 
 interface FamilyMember {
@@ -65,11 +66,13 @@ export default function TaskManager() {
     assignedToId: '',
     isRecurring: false,
     daysOfWeek: [] as string[],
-    timePeriod: 'ANYTIME'
+    timePeriod: 'ANYTIME',
+    hasEndDate: false,        //  NEW
+    recurringEndDate: ''      //  NEW
   })
 
-const user = session?.user as { name?: string; role?: string } | undefined
-const isParent = user?.role === 'PARENT'
+  const user = session?.user as { name?: string; role?: string } | undefined
+  const isParent = user?.role === 'PARENT'
 
   useEffect(() => {
     if (isParent) {
@@ -127,12 +130,20 @@ const isParent = user?.role === 'PARENT'
       const url = editingTask ? `/api/tasks/${editingTask}` : '/api/tasks'
       const method = editingTask ? 'PUT' : 'POST'
       
+      //  NEW: Prepare data with end date
+      const submitData = {
+        ...formData,
+        recurringEndDate: formData.hasEndDate && formData.recurringEndDate 
+          ? new Date(formData.recurringEndDate).toISOString() 
+          : null
+      }
+      
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitData),
       })
 
       console.log('Response status:', response.status)
@@ -191,7 +202,9 @@ const isParent = user?.role === 'PARENT'
       assignedToId: task.assignedTo?.id || '',
       isRecurring: task.isRecurring,
       daysOfWeek: task.daysOfWeek,
-      timePeriod: task.timePeriod || 'ANYTIME'
+      timePeriod: task.timePeriod || 'ANYTIME',
+      hasEndDate: !!task.recurringEndDate,                                    //  NEW
+      recurringEndDate: task.recurringEndDate ? task.recurringEndDate.split('T')[0] : ''  //  NEW
     })
     setShowAddForm(true)
     setError('')
@@ -206,11 +219,36 @@ const isParent = user?.role === 'PARENT'
       assignedToId: '',
       isRecurring: false,
       daysOfWeek: [],
-      timePeriod: 'ANYTIME'
+      timePeriod: 'ANYTIME',
+      hasEndDate: false,        //  NEW
+      recurringEndDate: ''      //  NEW
     })
     setShowAddForm(false)
     setEditingTask(null)
     setError('')
+  }
+
+  //  NEW: Helper function to get end date status
+  const getEndDateStatus = (endDate: string | null | undefined) => {
+    if (!endDate) return null
+    
+    const end = new Date(endDate)
+    const now = new Date()
+    const daysRemaining = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    
+    if (daysRemaining < 0) {
+      return { text: 'Expired', color: 'bg-gray-100 text-gray-600', icon: '⏰' }
+    }
+    if (daysRemaining === 0) {
+      return { text: 'Last day!', color: 'bg-orange-100 text-orange-700', icon: '⚠️' }
+    }
+    if (daysRemaining <= 3) {
+      return { text: `${daysRemaining} days left`, color: 'bg-orange-100 text-orange-700', icon: '⚠️' }
+    }
+    if (daysRemaining <= 7) {
+      return { text: `${daysRemaining} days left`, color: 'bg-yellow-100 text-yellow-700', icon: '📅' }
+    }
+    return { text: `Ends ${end.toLocaleDateString()}`, color: 'bg-blue-100 text-blue-700', icon: '📅' }
   }
 
   // Group tasks by category
@@ -235,21 +273,21 @@ const isParent = user?.role === 'PARENT'
 
   return (
     <div className="space-y-6">
-  {/* Header */}
+      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Manage Tasks</h2>
           <p className="text-sm text-gray-600">Family Members: {familyMembers.map(m => m.name).join(', ')}</p>
         </div>
-            {!showAddForm && ( // Add this condition
-            <button
+        {!showAddForm && (
+          <button
             onClick={() => setShowAddForm(true)}
             className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-            >
-              <Plus size={20} />
-              Add Task
-            </button>
-          )}
+          >
+            <Plus size={20} />
+            Add Task
+          </button>
+        )}
       </div>
 
       {/* Add/Edit Form */}
@@ -387,7 +425,9 @@ const isParent = user?.role === 'PARENT'
                   onChange={(e) => setFormData(prev => ({ 
                     ...prev, 
                     isRecurring: e.target.checked,
-                    daysOfWeek: e.target.checked ? prev.daysOfWeek : []
+                    daysOfWeek: e.target.checked ? prev.daysOfWeek : [],
+                    hasEndDate: e.target.checked ? prev.hasEndDate : false,    //  NEW
+                    recurringEndDate: e.target.checked ? prev.recurringEndDate : ''  //  NEW
                   }))}
                   className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
                 />
@@ -422,6 +462,52 @@ const isParent = user?.role === 'PARENT'
                     <p className="text-sm text-orange-600 mt-1">
                       Select at least one day for recurring tasks
                     </p>
+                  )}
+                </div>
+              )}
+
+              {/*  NEW: End Date Section (only show if recurring) */}
+              {formData.isRecurring && (
+                <div className="space-y-3 pt-3 border-t border-gray-200">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.hasEndDate}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        hasEndDate: e.target.checked,
+                        recurringEndDate: e.target.checked ? prev.recurringEndDate : ''
+                      }))}
+                      className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                    />
+                    <span className="font-medium text-gray-700">
+                      Set an end date for this recurring task
+                    </span>
+                  </label>
+
+                  {formData.hasEndDate && (
+                    <div className="ml-6 space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Last day this task should occur
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.recurringEndDate}
+                        onChange={(e) => setFormData(prev => ({ 
+                          ...prev, 
+                          recurringEndDate: e.target.value 
+                        }))}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        required={formData.hasEndDate}
+                      />
+                      <p className="text-xs text-gray-600">
+                        💡 After this date, the task will automatically stop appearing
+                      </p>
+                      <div className="text-xs bg-blue-50 border border-blue-200 text-blue-700 px-3 py-2 rounded">
+                        <strong>Example uses:</strong> "Take medicine for 2 weeks" or "Practice piano until recital"
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
@@ -465,67 +551,77 @@ const isParent = user?.role === 'PARENT'
               </h3>
               
               <div className="space-y-3">
-                {categoryTasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className={`flex items-center justify-between p-4 rounded-lg border-2 transition-colors ${categoryInfo.bgColor} ${categoryInfo.borderColor}`}
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-medium text-gray-800">{task.title}</h4>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${categoryInfo.color}`}>
-                          {categoryInfo.icon} {categoryInfo.label}
-                        </span>
-                        {task.timePeriod && task.timePeriod !== 'ANYTIME' && (
-                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 flex items-center gap-1">
-                            <Clock size={10} />
-                            {TIME_PERIODS[task.timePeriod as keyof typeof TIME_PERIODS]?.icon} {task.timePeriod.charAt(0) + task.timePeriod.slice(1).toLowerCase()}
+                {categoryTasks.map((task) => {
+                  const endStatus = getEndDateStatus(task.recurringEndDate)  //  NEW
+                  
+                  return (
+                    <div
+                      key={task.id}
+                      className={`flex items-center justify-between p-4 rounded-lg border-2 transition-colors ${categoryInfo.bgColor} ${categoryInfo.borderColor}`}
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <h4 className="font-medium text-gray-800">{task.title}</h4>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${categoryInfo.color}`}>
+                            {categoryInfo.icon} {categoryInfo.label}
                           </span>
+                          {task.timePeriod && task.timePeriod !== 'ANYTIME' && (
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 flex items-center gap-1">
+                              <Clock size={10} />
+                              {TIME_PERIODS[task.timePeriod as keyof typeof TIME_PERIODS]?.icon} {task.timePeriod.charAt(0) + task.timePeriod.slice(1).toLowerCase()}
+                            </span>
+                          )}
+                          {/*  NEW: Show end date status badge */}
+                          {endStatus && (
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${endStatus.color}`}>
+                              {endStatus.icon} {endStatus.text}
+                            </span>
+                          )}
+                        </div>
+                        {task.description && (
+                          <p className="text-sm text-gray-600 mt-1">{task.description}</p>
                         )}
+                        <div className="flex items-center gap-4 mt-2 text-sm flex-wrap">
+                          <span className="text-purple-600 font-medium">
+                            {task.points} points
+                          </span>
+                          {task.assignedTo && (
+                            <span className="text-blue-600 flex items-center gap-1">
+                              <User size={12} />
+                              For: {task.assignedTo.name}
+                            </span>
+                          )}
+                          {task.isRecurring && task.daysOfWeek.length > 0 && (
+                            <span className="text-green-600 flex items-center gap-1">
+                              <Calendar size={12} />
+                              {task.daysOfWeek.map(day => day.slice(0, 3)).join(', ')}
+                            </span>
+                          )}
+                          {task.createdBy && (
+                            <span className="text-gray-500">
+                              Created by: {task.createdBy.name}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      {task.description && (
-                        <p className="text-sm text-gray-600 mt-1">{task.description}</p>
-                      )}
-                      <div className="flex items-center gap-4 mt-2 text-sm">
-                        <span className="text-purple-600 font-medium">
-                          {task.points} points
-                        </span>
-                        {task.assignedTo && (
-                          <span className="text-blue-600 flex items-center gap-1">
-                            <User size={12} />
-                            For: {task.assignedTo.name}
-                          </span>
-                        )}
-                        {task.isRecurring && task.daysOfWeek.length > 0 && (
-                          <span className="text-green-600 flex items-center gap-1">
-                            <Calendar size={12} />
-                            {task.daysOfWeek.map(day => day.slice(0, 3)).join(', ')}
-                          </span>
-                        )}
-                        {task.createdBy && (
-                          <span className="text-gray-500">
-                            Created by: {task.createdBy.name}
-                          </span>
-                        )}
+                      
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => startEdit(task)}
+                          className="text-blue-600 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition-colors"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={() => deleteTask(task.id)}
+                          className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     </div>
-                    
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => startEdit(task)}
-                        className="text-blue-600 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition-colors"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        onClick={() => deleteTask(task.id)}
-                        className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )
