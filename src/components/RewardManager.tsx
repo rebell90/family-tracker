@@ -412,7 +412,7 @@ export default function RewardManager() {
                       ) : (
                         <>
                           <strong>Wishlist Item:</strong> This reward will disappear after 
-                          redemption and won't appear in the rewards list anymore. Perfect for physical 
+                          redemption and will not appear in the rewards list anymore. Perfect for physical 
                           items or one-time experiences.
                         </>
                       )}
