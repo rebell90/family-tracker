@@ -206,7 +206,9 @@ export default function TaskManager() {
       hasEndDate: !!task.recurringEndDate,                                    //  NEW
       recurringEndDate: task.recurringEndDate ? task.recurringEndDate.split('T')[0] : ''  //  NEW
     })
+    console.log('Form data set, showing form') // ADD THIS
     setShowAddForm(true)
+    console.log('showAddForm should now be true') // ADD THIS
     setError('')
   }
 
@@ -493,12 +495,13 @@ export default function TaskManager() {
                       <input
                         type="date"
                         value={formData.recurringEndDate}
-                        onChange={(e) => setFormData(prev => ({ 
-                          ...prev, 
-                          recurringEndDate: e.target.value 
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          recurringEndDate: e.target.value
                         }))}
                         min={new Date().toISOString().split('T')[0]}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        style={{ color: '#1f2937', fontWeight: '500' }}
                         required={formData.hasEndDate}
                       />
                       <p className="text-xs text-gray-600">
