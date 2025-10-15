@@ -44,8 +44,18 @@ export async function PUT(
     const body = await request.json()
     console.log('Update request body:', body)
 
-    const { title, description, points, category, assignedToId, isRecurring, daysOfWeek, timePeriod, isActive } = body
+    const { title, description, points, category, assignedToId, isRecurring, daysOfWeek, timePeriod, isActive, recurringEndDate } = body
 
+    let endDate = null
+if (isRecurring && recurringEndDate) {
+  endDate = new Date(recurringEndDate)
+  
+  if (endDate <= new Date()) {
+    return NextResponse.json({ 
+      error: 'End date must be in the future' 
+    }, { status: 400 })
+  }
+}
     // Check if task exists and belongs to user's family
     const existingTask = await prisma.task.findUnique({
       where: { id: id },
@@ -70,7 +80,8 @@ export async function PUT(
         isRecurring: isRecurring || false,
         daysOfWeek: daysOfWeek || [],
         timePeriod: timePeriod || 'ANYTIME',
-        isActive: isActive !== undefined ? isActive : true
+        isActive: isActive !== undefined ? isActive : true,
+        recurringEndDate: endDate
       },
       include: {
         assignedTo: {
