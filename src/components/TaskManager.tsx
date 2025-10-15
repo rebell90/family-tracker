@@ -505,7 +505,7 @@ export default function TaskManager() {
                         💡 After this date, the task will automatically stop appearing
                       </p>
                       <div className="text-xs bg-blue-50 border border-blue-200 text-blue-700 px-3 py-2 rounded">
-                        <strong>Example uses:</strong> "Take medicine for 2 weeks" or "Practice piano until recital"
+                        <strong>Example uses:</strong> &quot;Take medicine for 2 weeks&quot; or &quot;Practice piano until recital&quot;
                       </div>
                     </div>
                   )}
