@@ -34,7 +34,7 @@ export async function PATCH(
     }
 
     const { id } = await params
-    const { title, description, pointsRequired } = await request.json()
+    const { title, description, pointsRequired, isReusable  } = await request.json()
 
     const reward = await prisma.reward.update({
       where: { 
@@ -44,7 +44,8 @@ export async function PATCH(
       data: {
         title,
         description,
-        pointsRequired: parseInt(pointsRequired)
+        pointsRequired: parseInt(pointsRequired),
+        isReusable: isReusable !== undefined ? isReusable : true
       },
       include: {
         createdBy: {
