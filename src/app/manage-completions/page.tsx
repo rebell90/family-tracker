@@ -13,7 +13,7 @@ export default async function ManageCompletionsPage() {
 
   // Redirect to login if not authenticated
   if (!session) {
-    redirect('/login')
+    redirect('/auth/login')
   }
 
   // Check if user is a parent (optional - component does its own check too)
@@ -32,7 +32,7 @@ export default async function ManageCompletionsPage() {
             </p>
           </div>
           <a
-            href="/dashboard"
+            href="/"
             className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
           >
             Back to Dashboard
