@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import ManageCompletions from '@/components/ManageCompletions'
 
 export const metadata = {
@@ -31,12 +32,10 @@ export default async function ManageCompletionsPage() {
               View and delete task completion history
             </p>
           </div>
-          <a
-            href="/"
-            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
-          >
-            Back to Dashboard
-          </a>
+             <Link href="/"
+                className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >Back to Dashboard
+            </Link>
         </div>
 
         {/* ManageCompletions Component */}
