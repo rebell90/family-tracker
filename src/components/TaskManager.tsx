@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { Plus, Edit, Trash2, Save, X, User, Clock, Calendar } from 'lucide-react'
 import { TASK_CATEGORIES, getCategoryInfo, type TaskCategory } from '@/lib/categories'
+import Modal from './Modal'
 
 interface Task {
   id: string
@@ -292,12 +293,13 @@ export default function TaskManager() {
         )}
       </div>
 
-      {/* Add/Edit Form - MOBILE RESPONSIVE */}
-      {showAddForm && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-4">
-            {editingTask ? 'Edit Task' : 'Add New Task'}
-          </h3>
+      {/* Add/Edit Form - NOW IN MODAL */}
+      {showAddForm && (<Modal
+        isOpen={showAddForm}
+        onClose={resetForm}
+        title={editingTask ? 'Edit Task' : 'Add New Task'}
+        size="lg"
+      >
           
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-3 sm:px-4 py-2 sm:py-3 rounded-lg mb-4 text-sm">
@@ -536,7 +538,7 @@ export default function TaskManager() {
               </button>
             </div>
           </form>
-        </div>
+        </Modal>
       )}
 
       {/* Tasks List - MOBILE RESPONSIVE */}

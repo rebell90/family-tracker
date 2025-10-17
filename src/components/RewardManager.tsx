@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { Gift, Plus, Star, Check, X, Edit2, Trash2, RotateCcw, ShoppingBag } from 'lucide-react'
+import Modal from './Modal'
 
 interface Reward {
   id: string;
@@ -250,36 +251,30 @@ export default function RewardManager() {
         </div>
       )}
 
-      {/* Create Reward Form (Parents only) - MOBILE RESPONSIVE */}
+ {/* Create Reward Form (Parents only) - NOW IN MODAL */}
       {isParent && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-800">
-              {editingReward ? 'Edit Reward' : 'Create New Reward'}
-            </h3>
-            <button
-              onClick={() => editingReward ? cancelEdit() : setShowCreateForm(!showCreateForm)}
-              className={`px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors w-full sm:w-auto ${
-                showCreateForm 
-                  ? 'bg-gray-500 hover:bg-gray-600 text-white'
-                  : 'bg-purple-600 hover:bg-purple-700 text-white'
-              }`}
-            >
-              {showCreateForm ? (
-                <>
-                  <X size={16} />
-                  Cancel
-                </>
-              ) : (
-                <>
-                  <Plus size={16} />
-                  Add Reward
-                </>
-              )}
-            </button>
+        <>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800">
+                Manage Rewards
+              </h3>
+              <button
+                onClick={() => editingReward ? cancelEdit() : setShowCreateForm(true)}
+                className={`px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white`}
+              >
+                <Plus size={16} />
+                Add Reward
+              </button>
+            </div>
           </div>
 
-          {showCreateForm && (
+          <Modal
+            isOpen={showCreateForm}
+            onClose={cancelEdit}
+            title={editingReward ? 'Edit Reward' : 'Create New Reward'}
+            size="md"
+          >
             <form onSubmit={editingReward ? handleUpdateReward : handleCreateReward} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-1">
@@ -426,9 +421,9 @@ export default function RewardManager() {
               >
                 {loading ? (editingReward ? 'Updating...' : 'Creating...') : (editingReward ? 'Update Reward' : 'Create Reward')}
               </button>
-            </form>
-          )}
-        </div>
+          </form>
+          </Modal>
+        </>
       )}
 
       {/* Rewards List - MOBILE RESPONSIVE: Single column on mobile */}
