@@ -24,7 +24,7 @@ interface Task {
   daysOfWeek: string[]
   timePeriod?: string
   isActive: boolean
-  recurringEndDate?: string | null  //  NEW
+  recurringEndDate?: string | null
 }
 
 interface FamilyMember {
@@ -67,8 +67,8 @@ export default function TaskManager() {
     isRecurring: false,
     daysOfWeek: [] as string[],
     timePeriod: 'ANYTIME',
-    hasEndDate: false,        //  NEW
-    recurringEndDate: ''      //  NEW
+    hasEndDate: false,
+    recurringEndDate: ''
   })
 
   const user = session?.user as { name?: string; role?: string } | undefined
@@ -130,7 +130,6 @@ export default function TaskManager() {
       const url = editingTask ? `/api/tasks/${editingTask}` : '/api/tasks'
       const method = editingTask ? 'PUT' : 'POST'
       
-      //  NEW: Prepare data with end date
       const submitData = {
         ...formData,
         recurringEndDate: formData.hasEndDate && formData.recurringEndDate 
@@ -203,12 +202,12 @@ export default function TaskManager() {
       isRecurring: task.isRecurring,
       daysOfWeek: task.daysOfWeek,
       timePeriod: task.timePeriod || 'ANYTIME',
-      hasEndDate: !!task.recurringEndDate,                                    //  NEW
-      recurringEndDate: task.recurringEndDate ? task.recurringEndDate.split('T')[0] : ''  //  NEW
+      hasEndDate: !!task.recurringEndDate,
+      recurringEndDate: task.recurringEndDate ? task.recurringEndDate.split('T')[0] : ''
     })
-    console.log('Form data set, showing form') // ADD THIS
+    console.log('Form data set, showing form')
     setShowAddForm(true)
-    console.log('showAddForm should now be true') // ADD THIS
+    console.log('showAddForm should now be true')
     setError('')
   }
 
@@ -222,15 +221,14 @@ export default function TaskManager() {
       isRecurring: false,
       daysOfWeek: [],
       timePeriod: 'ANYTIME',
-      hasEndDate: false,        //  NEW
-      recurringEndDate: ''      //  NEW
+      hasEndDate: false,
+      recurringEndDate: ''
     })
     setShowAddForm(false)
     setEditingTask(null)
     setError('')
   }
 
-  //  NEW: Helper function to get end date status
   const getEndDateStatus = (endDate: string | null | undefined) => {
     if (!endDate) return null
     
@@ -274,40 +272,42 @@ export default function TaskManager() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800">Manage Tasks</h2>
-          <p className="text-sm text-gray-600">Family Members: {familyMembers.map(m => m.name).join(', ')}</p>
+    <div className="space-y-4 sm:space-y-6">
+      {/* Header - MOBILE RESPONSIVE */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Manage Tasks</h2>
+          <p className="text-xs sm:text-sm text-gray-600 truncate">
+            Family Members: {familyMembers.map(m => m.name).join(', ')}
+          </p>
         </div>
         {!showAddForm && (
           <button
             onClick={() => setShowAddForm(true)}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors w-full sm:w-auto"
           >
-            <Plus size={20} />
+            <Plus size={18} />
             Add Task
           </button>
         )}
       </div>
 
-      {/* Add/Edit Form */}
+      {/* Add/Edit Form - MOBILE RESPONSIVE */}
       {showAddForm && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-4">
             {editingTask ? 'Edit Task' : 'Add New Task'}
           </h3>
           
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-3 sm:px-4 py-2 sm:py-3 rounded-lg mb-4 text-sm">
               <strong>Error:</strong> {error}
             </div>
           )}
           
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Basic Info */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Basic Info - MOBILE RESPONSIVE: Stack on mobile */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Task Title *
@@ -317,8 +317,8 @@ export default function TaskManager() {
                   required
                   value={formData.title}
                   onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white placeholder-gray-500"
-                  placeholder="e.g., Make bed, Do homework"
+                  className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white placeholder-gray-500 text-base"
+                  placeholder="e.g., Make bed"
                 />
               </div>
               
@@ -329,7 +329,7 @@ export default function TaskManager() {
                 <select
                   value={formData.category}
                   onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as TaskCategory }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white"
+                  className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white text-base"
                 >
                   {Object.entries(TASK_CATEGORIES).map(([key, category]) => (
                     <option key={key} value={key}>
@@ -348,13 +348,13 @@ export default function TaskManager() {
                   min="1"
                   value={formData.points}
                   onChange={(e) => setFormData(prev => ({ ...prev, points: parseInt(e.target.value) || 1 }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white"
+                  className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white text-base"
                 />
               </div>
             </div>
 
-            {/* Assignment and Description */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Assignment and Description - MOBILE RESPONSIVE */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Assign to
@@ -362,12 +362,12 @@ export default function TaskManager() {
                 <select
                   value={formData.assignedToId}
                   onChange={(e) => setFormData(prev => ({ ...prev, assignedToId: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white"
+                  className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white text-base"
                 >
-                  <option value="">Everyone (no specific assignment)</option>
+                  <option value="">Everyone</option>
                   {children.map(child => (
                     <option key={child.id} value={child.id}>
-                      {child.name} ({child.role})
+                      {child.name}
                     </option>
                   ))}
                 </select>
@@ -380,38 +380,38 @@ export default function TaskManager() {
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white placeholder-gray-500"
+                  className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white placeholder-gray-500 text-base"
                   rows={2}
-                  placeholder="Optional description..."
+                  placeholder="Optional..."
                 />
               </div>
             </div>
 
-            {/* Scheduling Section */}
-            <div className="bg-gray-50 p-4 rounded-lg space-y-4">
-              <h4 className="font-medium text-gray-800 flex items-center gap-2">
+            {/* Scheduling Section - MOBILE RESPONSIVE */}
+            <div className="bg-gray-50 p-3 sm:p-4 rounded-lg space-y-4">
+              <h4 className="font-medium text-gray-800 flex items-center gap-2 text-sm sm:text-base">
                 <Calendar size={16} />
                 Task Schedule
               </h4>
 
-              {/* Time Period */}
+              {/* Time Period - MOBILE RESPONSIVE: 2 columns on mobile, 4 on desktop */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   When should this task be done?
                 </label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
                   {Object.entries(TIME_PERIODS).map(([key, period]) => (
                     <button
                       key={key}
                       type="button"
                       onClick={() => setFormData(prev => ({ ...prev, timePeriod: key }))}
-                      className={`p-3 text-sm rounded-lg border-2 transition-colors ${
+                      className={`p-2 sm:p-3 text-xs sm:text-sm rounded-lg border-2 transition-colors ${
                         formData.timePeriod === key
                           ? 'border-purple-500 bg-purple-50 text-purple-700'
                           : 'border-gray-200 bg-white text-gray-600 hover:border-purple-300'
                       }`}
                     >
-                      <div className="text-lg mb-1">{period.icon}</div>
+                      <div className="text-base sm:text-lg mb-1">{period.icon}</div>
                       <div className="font-medium">{key.charAt(0) + key.slice(1).toLowerCase()}</div>
                     </button>
                   ))}
@@ -428,8 +428,8 @@ export default function TaskManager() {
                     ...prev, 
                     isRecurring: e.target.checked,
                     daysOfWeek: e.target.checked ? prev.daysOfWeek : [],
-                    hasEndDate: e.target.checked ? prev.hasEndDate : false,    //  NEW
-                    recurringEndDate: e.target.checked ? prev.recurringEndDate : ''  //  NEW
+                    hasEndDate: e.target.checked ? prev.hasEndDate : false,
+                    recurringEndDate: e.target.checked ? prev.recurringEndDate : ''
                   }))}
                   className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
                 />
@@ -438,7 +438,7 @@ export default function TaskManager() {
                 </label>
               </div>
 
-              {/* Days Selection (only show if recurring) */}
+              {/* Days Selection - MOBILE RESPONSIVE: Wrap properly */}
               {formData.isRecurring && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -461,14 +461,14 @@ export default function TaskManager() {
                     ))}
                   </div>
                   {formData.isRecurring && formData.daysOfWeek.length === 0 && (
-                    <p className="text-sm text-orange-600 mt-1">
+                    <p className="text-xs sm:text-sm text-orange-600 mt-1">
                       Select at least one day for recurring tasks
                     </p>
                   )}
                 </div>
               )}
 
-              {/*  NEW: End Date Section (only show if recurring) */}
+              {/* End Date Section - MOBILE RESPONSIVE */}
               {formData.isRecurring && (
                 <div className="space-y-3 pt-3 border-t border-gray-200">
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -482,13 +482,13 @@ export default function TaskManager() {
                       }))}
                       className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
                     />
-                    <span className="font-medium text-gray-700">
+                    <span className="font-medium text-gray-700 text-sm sm:text-base">
                       Set an end date for this recurring task
                     </span>
                   </label>
 
                   {formData.hasEndDate && (
-                    <div className="ml-6 space-y-2">
+                    <div className="ml-0 sm:ml-6 space-y-2">
                       <label className="block text-sm font-medium text-gray-700">
                         Last day this task should occur
                       </label>
@@ -500,14 +500,14 @@ export default function TaskManager() {
                           recurringEndDate: e.target.value
                         }))}
                         min={new Date().toISOString().split('T')[0]}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        className="w-full px-3 sm:px-4 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-base"
                         style={{ color: '#1f2937', fontWeight: '500' }}
                         required={formData.hasEndDate}
                       />
                       <p className="text-xs text-gray-600">
                         💡 After this date, the task will automatically stop appearing
                       </p>
-                      <div className="text-xs bg-blue-50 border border-blue-200 text-blue-700 px-3 py-2 rounded">
+                      <div className="text-xs bg-blue-50 border border-blue-200 text-blue-700 px-2 sm:px-3 py-2 rounded">
                         <strong>Example uses:</strong> &quot;Take medicine for 2 weeks&quot; or &quot;Practice piano until recital&quot;
                       </div>
                     </div>
@@ -516,10 +516,11 @@ export default function TaskManager() {
               )}
             </div>
 
-            <div className="flex gap-4">
+            {/* Form Actions - MOBILE RESPONSIVE: Stack on mobile */}
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
               <button
                 type="submit"
-                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors"
               >
                 <Save size={16} />
                 {editingTask ? 'Update Task' : 'Create Task'}
@@ -528,7 +529,7 @@ export default function TaskManager() {
               <button
                 type="button"
                 onClick={resetForm}
-                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors"
               >
                 <X size={16} />
                 Cancel
@@ -538,86 +539,89 @@ export default function TaskManager() {
         </div>
       )}
 
-      {/* Tasks List - Grouped by Category */}
-      <div className="space-y-6">
+      {/* Tasks List - MOBILE RESPONSIVE */}
+      <div className="space-y-4 sm:space-y-6">
         {Object.entries(TASK_CATEGORIES).map(([categoryKey, categoryInfo]) => {
           const categoryTasks = tasksByCategory[categoryKey as TaskCategory] || []
           
           if (categoryTasks.length === 0) return null
 
           return (
-            <div key={categoryKey} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                <span className="text-2xl">{categoryInfo.icon}</span>
-                {categoryInfo.label}
-                <span className="text-sm text-gray-500 ml-2">({categoryTasks.length})</span>
+            <div key={categoryKey} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2 flex-wrap">
+                <span className="text-xl sm:text-2xl">{categoryInfo.icon}</span>
+                <span className="truncate">{categoryInfo.label}</span>
+                <span className="text-xs sm:text-sm text-gray-500 ml-auto">({categoryTasks.length})</span>
               </h3>
               
               <div className="space-y-3">
                 {categoryTasks.map((task) => {
-                  const endStatus = getEndDateStatus(task.recurringEndDate)  //  NEW
+                  const endStatus = getEndDateStatus(task.recurringEndDate)
                   
                   return (
                     <div
                       key={task.id}
-                      className={`flex items-center justify-between p-4 rounded-lg border-2 transition-colors ${categoryInfo.bgColor} ${categoryInfo.borderColor}`}
+                      className={`flex flex-col sm:flex-row sm:items-center gap-3 p-3 sm:p-4 rounded-lg border-2 transition-colors ${categoryInfo.bgColor} ${categoryInfo.borderColor}`}
                     >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <h4 className="font-medium text-gray-800">{task.title}</h4>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${categoryInfo.color}`}>
-                            {categoryInfo.icon} {categoryInfo.label}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1">
+                          <h4 className="font-medium text-gray-800 text-sm sm:text-base break-words">{task.title}</h4>
+                          <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium ${categoryInfo.color} shrink-0`}>
+                            {categoryInfo.icon} <span className="hidden sm:inline">{categoryInfo.label}</span>
                           </span>
                           {task.timePeriod && task.timePeriod !== 'ANYTIME' && (
-                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 flex items-center gap-1">
+                            <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 flex items-center gap-1 shrink-0">
                               <Clock size={10} />
-                              {TIME_PERIODS[task.timePeriod as keyof typeof TIME_PERIODS]?.icon} {task.timePeriod.charAt(0) + task.timePeriod.slice(1).toLowerCase()}
+                              <span className="hidden sm:inline">{TIME_PERIODS[task.timePeriod as keyof typeof TIME_PERIODS]?.icon}</span>
+                              <span className="hidden md:inline">{task.timePeriod.charAt(0) + task.timePeriod.slice(1).toLowerCase()}</span>
                             </span>
                           )}
-                          {/*  NEW: Show end date status badge */}
                           {endStatus && (
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${endStatus.color}`}>
-                              {endStatus.icon} {endStatus.text}
+                            <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium flex items-center gap-1 shrink-0 ${endStatus.color}`}>
+                              <span className="hidden sm:inline">{endStatus.icon}</span> {endStatus.text}
                             </span>
                           )}
                         </div>
                         {task.description && (
-                          <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+                          <p className="text-xs sm:text-sm text-gray-600 mt-1 break-words line-clamp-2">{task.description}</p>
                         )}
-                        <div className="flex items-center gap-4 mt-2 text-sm flex-wrap">
-                          <span className="text-purple-600 font-medium">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2 text-xs sm:text-sm">
+                          <span className="text-purple-600 font-medium whitespace-nowrap">
                             {task.points} points
                           </span>
                           {task.assignedTo && (
                             <span className="text-blue-600 flex items-center gap-1">
                               <User size={12} />
-                              For: {task.assignedTo.name}
+                              <span className="truncate max-w-[150px]">{task.assignedTo.name}</span>
                             </span>
                           )}
                           {task.isRecurring && task.daysOfWeek.length > 0 && (
                             <span className="text-green-600 flex items-center gap-1">
                               <Calendar size={12} />
-                              {task.daysOfWeek.map(day => day.slice(0, 3)).join(', ')}
+                              <span className="hidden sm:inline">{task.daysOfWeek.map(day => day.slice(0, 3)).join(', ')}</span>
+                              <span className="sm:hidden">{task.daysOfWeek.length} days</span>
                             </span>
                           )}
                           {task.createdBy && (
-                            <span className="text-gray-500">
+                            <span className="text-gray-500 hidden md:inline">
                               Created by: {task.createdBy.name}
                             </span>
                           )}
                         </div>
                       </div>
                       
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 sm:ml-auto shrink-0">
                         <button
                           onClick={() => startEdit(task)}
                           className="text-blue-600 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition-colors"
+                          aria-label="Edit task"
                         >
                           <Edit size={16} />
                         </button>
                         <button
                           onClick={() => deleteTask(task.id)}
                           className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                          aria-label="Delete task"
                         >
                           <Trash2 size={16} />
                         </button>
@@ -631,8 +635,8 @@ export default function TaskManager() {
         })}
 
         {tasks.length === 0 && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
-            <p className="text-gray-500">No tasks yet. Create your first task above!</p>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 sm:p-8 text-center">
+            <p className="text-sm sm:text-base text-gray-500">No tasks yet. Create your first task above!</p>
           </div>
         )}
       </div>
