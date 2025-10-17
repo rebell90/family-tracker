@@ -53,7 +53,6 @@ export default function OverdueTasks() {
       
       const data: Task[] = Array.isArray(result) ? result : (result.tasks || [])
       
-      // Filter out today's tasks and skipped tasks
       const today = new Date()
       today.setHours(0, 0, 0, 0)
       
@@ -61,13 +60,15 @@ export default function OverdueTasks() {
         const taskDate = new Date(task.missedDate || task.createdAt || '')
         taskDate.setHours(0, 0, 0, 0)
 
-        //DEBUG
-        console.log('Task:', task.title, {
+        console.log('Filtering task:', task.title, {
           missedDate: task.missedDate,
           createdAt: task.createdAt,
           taskDate: taskDate.toISOString(),
           today: today.toISOString(),
-          isBeforeToday: taskDate < today
+          todayTime: today.getTime(),
+          taskDateTime: taskDate.getTime(),
+          isBeforeToday: taskDate < today,
+          willShow: taskDate < today
         })
         return taskDate < today
       })
@@ -92,7 +93,7 @@ export default function OverdueTasks() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           taskId,
-          completedAt: missedDate || new Date().toISOString() // Use missedDate as completion date
+          completedAt: missedDate || new Date().toISOString()
         })
       })
 
@@ -124,7 +125,7 @@ export default function OverdueTasks() {
         body: JSON.stringify({ 
           taskId, 
           reason,
-          skippedAt: missedDate || new Date().toISOString() // Use missedDate
+          skippedAt: missedDate || new Date().toISOString()
         })
       })
 
@@ -149,7 +150,6 @@ export default function OverdueTasks() {
     setProcessingTask(uniqueKey)
     
     try {
-      // First skip the old occurrence
       await fetch('/api/tasks/skip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -159,9 +159,6 @@ export default function OverdueTasks() {
           skippedAt: missedDate
         })
       })
-
-      // Then create a new occurrence for the new date
-      // (This would require a new API endpoint or you could just skip for now)
       
       await fetchOverdueTasks()
       alert('Task rescheduled successfully')
@@ -256,8 +253,8 @@ export default function OverdueTasks() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6 flex items-center justify-center">
-        <div className="text-gray-600">Loading overdue tasks...</div>
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-3 sm:p-6 flex items-center justify-center">
+        <div className="text-sm sm:text-base text-gray-600">Loading overdue tasks...</div>
       </div>
     )
   }
@@ -266,46 +263,46 @@ export default function OverdueTasks() {
   const groupOrder = ['Yesterday', 'Earlier This Week', 'Last Week', 'Older Tasks']
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-3 sm:p-6">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
+        {/* Header - MOBILE RESPONSIVE */}
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-4 sm:mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4">
+            <div className="flex items-center gap-2 sm:gap-3">
               <Link 
                 href="/"
-                className="text-gray-600 hover:text-gray-800 transition-colors"
+                className="text-gray-600 hover:text-gray-800 transition-colors shrink-0"
               >
-                <ArrowLeft size={24} />
+                <ArrowLeft size={20} className="sm:w-6 sm:h-6" />
               </Link>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-800">Overdue Tasks</h1>
-                <p className="text-gray-600 text-sm mt-1">
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Overdue Tasks</h1>
+                <p className="text-xs sm:text-sm text-gray-600 mt-1">
                   Complete, reschedule, or skip missed tasks
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="text-orange-500" size={20} />
-              <span className="text-lg font-semibold text-gray-700">
+            <div className="flex items-center gap-2 bg-orange-50 px-3 py-2 rounded-lg shrink-0">
+              <AlertTriangle className="text-orange-500" size={18} />
+              <span className="text-base sm:text-lg font-semibold text-gray-700">
                 {overdueTasks.length} Overdue
               </span>
             </div>
           </div>
         </div>
 
-        {/* Task Groups */}
+        {/* Task Groups - MOBILE RESPONSIVE */}
         {overdueTasks.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
-            <CheckCircle className="text-green-500 mx-auto mb-4" size={48} />
-            <h2 className="text-xl font-semibold text-gray-800 mb-2">All Caught Up!</h2>
-            <p className="text-gray-600">You have no overdue tasks. Great job!</p>
-            <Link href="/" className="mt-4 inline-block text-blue-600 hover:text-blue-700">
+          <div className="bg-white rounded-xl shadow-lg p-8 sm:p-12 text-center">
+            <CheckCircle className="text-green-500 mx-auto mb-4" size={40} />
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">All Caught Up!</h2>
+            <p className="text-sm sm:text-base text-gray-600">You have no overdue tasks. Great job!</p>
+            <Link href="/" className="mt-4 inline-block text-sm sm:text-base text-blue-600 hover:text-blue-700">
               ← Back to Dashboard
             </Link>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {groupOrder.map(group => {
               const tasks = groupedTasks[group]
               if (!tasks || tasks.length === 0) return null
@@ -314,34 +311,34 @@ export default function OverdueTasks() {
 
               return (
                 <div key={group} className="bg-white rounded-xl shadow-md overflow-hidden">
-                  {/* Group Header */}
+                  {/* Group Header - MOBILE RESPONSIVE */}
                   <div
                     onClick={() => toggleGroup(group)}
-                    className="flex items-center justify-between p-4 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
+                    className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                      <div className={`p-1.5 sm:p-2 rounded-lg shrink-0 ${
                         group === 'Yesterday' ? 'bg-orange-100 text-orange-600' :
                         'bg-gray-200 text-gray-600'
                       }`}>
-                        <Calendar size={18} />
+                        <Calendar size={16} className="sm:w-[18px] sm:h-[18px]" />
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-800">{group}</h3>
-                        <p className="text-sm text-gray-600">{tasks.length} task{tasks.length !== 1 ? 's' : ''}</p>
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-gray-800 text-sm sm:text-base truncate">{group}</h3>
+                        <p className="text-xs sm:text-sm text-gray-600">{tasks.length} task{tasks.length !== 1 ? 's' : ''}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-500">
-                        {tasks.reduce((sum, t) => sum + t.points, 0)} points total
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs sm:text-sm text-gray-500 hidden sm:inline">
+                        {tasks.reduce((sum, t) => sum + t.points, 0)} pts
                       </span>
-                      {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                      {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                     </div>
                   </div>
 
-                  {/* Tasks List */}
+                  {/* Tasks List - MOBILE RESPONSIVE */}
                   {isExpanded && (
-                    <div className="p-4 space-y-3 border-t border-gray-100">
+                    <div className="p-3 sm:p-4 space-y-3 border-t border-gray-100">
                       {tasks.map(task => {
                         const uniqueKey = `${task.id}-${task.missedDate}`
                         const isProcessing = processingTask === uniqueKey
@@ -352,89 +349,94 @@ export default function OverdueTasks() {
                         return (
                           <div
                             key={uniqueKey}
-                            className="flex items-center gap-4 p-4 rounded-lg border-2 border-gray-200 hover:border-gray-300 transition-all"
+                            className="flex flex-col gap-3 p-3 sm:p-4 rounded-lg border-2 border-gray-200 hover:border-gray-300 transition-all"
                           >
-                            {/* Task Info */}
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-medium text-gray-800">{task.title}</h4>
+                            {/* Task Info - MOBILE RESPONSIVE */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                                <h4 className="font-medium text-gray-800 text-sm sm:text-base break-words">{task.title}</h4>
                                 {task.isRecurring && (
-                                  <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
+                                  <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full shrink-0">
                                     Recurring
                                   </span>
                                 )}
                                 {missedDateDisplay && (
-                                  <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">
+                                  <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full shrink-0">
                                     Due: {missedDateDisplay}
                                   </span>
                                 )}
                               </div>
                               {task.description && (
-                                <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+                                <p className="text-xs sm:text-sm text-gray-600 mt-1 break-words line-clamp-2">{task.description}</p>
                               )}
-                              <div className="flex items-center gap-4 mt-2">
-                                <span className="text-sm text-gray-500 flex items-center gap-1">
-                                  <Clock size={14} />
+                              <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2">
+                                <span className="text-xs sm:text-sm text-gray-500 flex items-center gap-1">
+                                  <Clock size={12} />
                                   {task.timePeriod || 'Anytime'}
                                 </span>
-                                <span className="text-sm font-medium text-orange-600">
+                                <span className="text-xs sm:text-sm font-medium text-orange-600">
                                   {task.points} points
                                 </span>
                               </div>
                             </div>
 
-                            {/* Actions */}
+                            {/* Actions - MOBILE RESPONSIVE: Stack everything on mobile */}
                             <div className="flex flex-col gap-2">
+                              {/* Complete and Skip buttons - Side by side even on mobile */}
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => handleCompleteTask(task.id, task.missedDate)}
                                   disabled={isProcessing}
-                                  className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                                  className="flex-1 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors flex items-center justify-center gap-1.5"
                                   title="Mark as completed"
                                 >
                                   {isProcessing ? '...' : (
                                     <>
-                                      <CheckCircle size={16} />
-                                      Complete
+                                      <CheckCircle size={14} />
+                                      <span>Complete</span>
                                     </>
                                   )}
                                 </button>
                                 <button
                                   onClick={() => handleSkipTask(task.id, task.missedDate)}
                                   disabled={isProcessing}
-                                  className="bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                                  className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors flex items-center justify-center gap-1.5"
                                   title="Skip this task"
                                 >
                                   {isProcessing ? '...' : (
                                     <>
-                                      <X size={16} />
-                                      Skip
+                                      <X size={14} />
+                                      <span>Skip</span>
                                     </>
                                   )}
                                 </button>
                               </div>
                               
+                              {/* Reschedule and Delete row */}
                               <div className="flex gap-2">
-                                <div className="flex-1">
+                                <div className="flex-1 min-w-0">
                                   <label className="text-xs text-gray-500 block mb-1">Reschedule to:</label>
                                   <input
                                     type="date"
                                     onChange={(e) => handleRescheduleTask(task.id, task.missedDate || '', e.target.value)}
                                     disabled={isProcessing}
-                                    className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+                                    className="w-full px-2 sm:px-3 py-1.5 border border-gray-300 rounded-lg text-xs sm:text-sm"
+                                    style={{ color: '#1f2937' }}
                                     min={new Date().toISOString().split('T')[0]}
                                   />
                                 </div>
                                 
                                 {isParent && (
-                                  <button
-                                    onClick={() => handleDeleteInstance(task.id, task.missedDate)}
-                                    disabled={isProcessing}
-                                    className="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors self-end"
-                                    title="Delete this occurrence (Parent only)"
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
+                                  <div className="flex flex-col justify-end">
+                                    <button
+                                      onClick={() => handleDeleteInstance(task.id, task.missedDate)}
+                                      disabled={isProcessing}
+                                      className="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 h-[34px] sm:h-[38px]"
+                                      title="Delete this occurrence (Parent only)"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
                                 )}
                               </div>
                             </div>
