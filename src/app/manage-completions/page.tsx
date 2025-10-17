@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import ManageCompletions from '@/components/ManageCompletions'
+import Link from 'next/link'
 
 export const metadata = {
   title: 'Manage Completions - Family Tracker',
@@ -31,12 +32,12 @@ export default async function ManageCompletionsPage() {
               View and delete task completion history
             </p>
           </div>
-          <a
-            href="/dashboard"
+          <Link
+            href="/"
             className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors text-center sm:whitespace-nowrap"
           >
             Back to Dashboard
-          </a>
+          </Link>
         </div>
 
         {/* ManageCompletions Component */}
