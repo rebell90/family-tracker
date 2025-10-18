@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { Star, CheckCircle, Gift, Settings, Users, Clock, Sun, Moon } from 'lucide-react'
+import { Star, CheckCircle, Gift, Settings, Users, Clock, Sun, Moon, Target } from 'lucide-react'
 import TaskManager from './TaskManager'
 import FamilyManager from './FamilyManager'
 import RewardManager from './RewardManager'
 import Link from 'next/link'
 import { AlertCircle, ExternalLink } from 'lucide-react'
+import HabitTracker from './HabitTracker'
+import HabitManager from './HabitManager'
 
 interface Task {
   id: string
@@ -105,6 +107,8 @@ export default function Dashboard() {
   const [showRewardManager, setShowRewardManager] = useState(false)
   const [completingTask, setCompletingTask] = useState<string | null>(null)
   const [overdueTasks, setOverdueTasks] = useState<number>(0)
+  const [showHabitManager, setShowHabitManager] = useState(false)
+  const [showHabitTracker, setShowHabitTracker] = useState(false)
 
   const user = session?.user as { name?: string; role?: string } | undefined
   const isParent = user?.role === 'PARENT'
@@ -426,6 +430,46 @@ export default function Dashboard() {
     )
   }
 
+  // Habit Manager view (Parents)
+  if (isParent && showHabitManager) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-3xl font-bold text-gray-800">Habit Manager</h1>
+            <button
+              onClick={() => setShowHabitManager(false)}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              Back to Dashboard
+            </button>
+          </div>
+          <HabitManager />
+        </div>
+      </div>
+    )
+  }
+
+  // Habit Tracker view (Kids)
+  if (showHabitTracker) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-3xl font-bold text-gray-800">My Habits</h1>
+            <button
+              onClick={() => setShowHabitTracker(false)}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              Back to Dashboard
+            </button>
+          </div>
+          <HabitTracker />
+        </div>
+      </div>
+    )
+  }
+
   // MAIN DASHBOARD - Mobile responsive
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-3 sm:p-6">
@@ -465,11 +509,19 @@ export default function Dashboard() {
                 <Gift size={18} />
                 <span className="text-sm sm:text-base">Rewards</span>
               </button>
+              <button
+                onClick={() => setShowHabitManager(true)}
+                className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+              >
+                <Target size={20} />
+                Habits
+              </button>
             </div>
           )}
           
           {/* Child Button - Mobile Responsive */}
           {isChild && (
+            <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setShowRewardManager(true)}
               className="bg-green-600 hover:bg-green-700 text-white px-3 sm:px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors w-full sm:w-auto"
@@ -477,6 +529,14 @@ export default function Dashboard() {
               <Gift size={18} />
               <span className="text-sm sm:text-base">Reward Store</span>
             </button>
+              <button
+                onClick={() => setShowHabitTracker(true)}
+                className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+              >
+                <Target size={20} />
+                My Habits
+              </button>
+            </div>
           )}
         </div>
 
@@ -842,6 +902,13 @@ export default function Dashboard() {
                 <h3 className="font-medium text-gray-800 text-sm sm:text-base">Manage Completions</h3>
                 <p className="text-xs sm:text-sm text-gray-600 mt-1">View and delete task completion history</p>
               </Link>
+              <button
+                onClick={() => setShowHabitManager(true)}
+                className="p-4 text-left rounded-lg border border-gray-200 hover:border-teal-300 transition-colors"
+              >
+                <h3 className="font-medium text-gray-800">Manage Habits</h3>
+                <p className="text-sm text-gray-600 mt-1">Track reading, exercise, and healthy habits</p>
+              </button>
             </div>
           </div>
         )}

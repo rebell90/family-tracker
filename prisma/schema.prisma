@@ -57,6 +57,9 @@ model User {
   createdRewards    Reward[]
   redeemedRewards   RewardRedemption[]
   skips             TaskSkip[]
+  createdHabits     Habit[]              @relation("HabitCreatedBy")
+  assignedHabits    Habit[]              @relation("HabitAssignedTo")
+  habitLogs         HabitLog[]
 
   @@map("users")
 }
@@ -79,6 +82,7 @@ model Family {
   members User[]
   tasks   Task[]
   rewards Reward[]
+  habits  Habit[] 
 
   @@map("families")
 }
@@ -204,4 +208,72 @@ enum TaskCategory {
   PERSONAL_CARE
   GOALS
   OTHER
+}
+
+// Habit Tracking
+model Habit {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  familyId    String
+  family      Family   @relation(fields: [familyId], references: [id])
+  
+  // Measurement configuration
+  measurementType  MeasurementType
+  measurementUnit  String?          // "pages", "problems", "laps", "glasses"
+  goalAmount       Int              // Target number per day
+  
+  // Assignment
+  assignedToId String?
+  assignedTo   User?   @relation("HabitAssignedTo", fields: [assignedToId], references: [id])
+  createdById  String
+  createdBy    User    @relation("HabitCreatedBy", fields: [createdById], references: [id])
+  
+  // Scheduling
+  frequency    Frequency  @default(DAILY)
+  daysOfWeek   String[]   // ["MONDAY", "TUESDAY"]
+  
+  // Gamification
+  pointsPerGoal Int?      // Points earned when daily goal met
+  icon         String?    // Emoji or icon identifier
+  color        String?    // For UI theming
+  
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  logs         HabitLog[]
+
+  @@map("habits")
+}
+
+model HabitLog {
+  id          String   @id @default(cuid())
+  habitId     String
+  habit       Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  amount      Int      // Number logged (30 minutes, 5 pages, 10 reps)
+  logDate     DateTime @db.Date  // Just the date, no time
+  notes       String?  // Optional: "Read Harry Potter chapter 3"
+  
+  createdAt   DateTime @default(now())
+  
+  @@unique([habitId, userId, logDate])
+  @@map("habit_logs")
+}
+
+enum MeasurementType {
+  MINUTES    // Reading, practice, exercise duration
+  PAGES      // Books, worksheets
+  REPS       // Push-ups, math problems
+  DISTANCE   // Running (miles/km)
+  COUNT      // Glasses of water, servings of vegetables
+}
+
+enum Frequency {
+  DAILY
+  WEEKLY
+  CUSTOM
 }
