@@ -292,36 +292,68 @@ export default function Dashboard() {
     return 'ANYTIME'
   }
 
-  const getYesterdaysMissedTasks = () => {
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-    const dayOfWeek = yesterday.getDay()
-    const dayName = Object.keys(DAYS_MAP)[Object.values(DAYS_MAP).indexOf(dayOfWeek)]
+const getYesterdaysMissedTasks = () => {
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  yesterday.setHours(0, 0, 0, 0)
+  const yesterdayDayOfWeek = yesterday.getDay()
+  const yesterdayName = Object.keys(DAYS_MAP)[Object.values(DAYS_MAP).indexOf(yesterdayDayOfWeek)]
 
-    return tasks.filter(task => {
-      if (task.completedAt || task.completedToday || task.skippedToday) return false
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const todayDayOfWeek = today.getDay()
+  const todayName = Object.keys(DAYS_MAP)[Object.values(DAYS_MAP).indexOf(todayDayOfWeek)]
+
+  return tasks.filter(task => {
+    // Check if task is still active (hasn't passed its end date)
+    if (!isTaskActive(task)) return false
+    
+    // Exclude tasks that were completed today or skipped today
+    if (task.completedToday || task.skippedToday) return false
+    
+    // Exclude tasks that were completed recently (within the last day)
+    if (task.completedAt) {
+      const completedDate = new Date(task.completedAt)
+      completedDate.setHours(0, 0, 0, 0)
+      // If completed today or after, don't show as missed from yesterday
+      if (completedDate >= today) return false
+    }
+
+    // For recurring tasks with specific days
+    if (task.isRecurring && task.daysOfWeek.length > 0) {
+      // EXCLUDE tasks scheduled for TODAY - they belong in "Today's Schedule"
+      if (task.daysOfWeek.includes(todayName)) return false
       
-      if (!task.isRecurring) return true
-      if (task.daysOfWeek.length === 0) return true
+      // INCLUDE only if task was scheduled for YESTERDAY
+      return task.daysOfWeek.includes(yesterdayName)
+    }
+    
+    // For non-recurring tasks or recurring tasks with no specific days (daily tasks)
+    // Show them as missed if not completed
+    return true
+  })
+}
+
+const getTasksForToday = () => {
+  const today = new Date().getDay()
+  const dayName = Object.keys(DAYS_MAP)[Object.values(DAYS_MAP).indexOf(today)]
+
+  return tasks.filter(task => {
+    // Check if task is still active (hasn't passed its end date)
+    if (!isTaskActive(task)) return false
+    
+    // For non-recurring tasks, always show them (one-time tasks)
+    if (!task.isRecurring) return true
+    
+    // For recurring tasks with specific days, check if today is included
+    if (task.isRecurring && task.daysOfWeek.length > 0) {
       return task.daysOfWeek.includes(dayName)
-    })
-  }
-
-  const getTasksForToday = () => {
-    const today = new Date().getDay()
-    const dayName = Object.keys(DAYS_MAP)[Object.values(DAYS_MAP).indexOf(today)]
-
-    return tasks.filter(task => {
-      if (!isTaskActive(task)) return false
-      if (!task.isRecurring) return true
-      
-      if (task.isRecurring && task.daysOfWeek.length > 0) {
-        return task.daysOfWeek.includes(dayName)
-      }
-      
-      return true
-    })
-  }
+    }
+    
+    // For recurring tasks with no specific days (every day), show them
+    return true
+  })
+}
 
   const groupTasksByTimePeriod = (tasks: Task[]) => {
     return tasks.reduce((acc, task) => {
