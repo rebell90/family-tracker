@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
         },
         completions: {
           where: {
+            userId: user.id,
             completedAt: {
               gte: new Date(new Date().setHours(0, 0, 0, 0)) // Today's completions
             }
