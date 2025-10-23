@@ -18,6 +18,7 @@ interface Task {
   points: number
   completedAt?: Date | null
   completedToday?: boolean
+  completedBy?: string | null
   skippedToday?: boolean
   timePeriod?: string
   isRecurring: boolean
@@ -865,16 +866,26 @@ const getTasksForToday = () => {
                           )}
 
                           {isCompleted && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleUndoTask(task.id, task.title)
-                              }}
-                              className="text-gray-500 hover:text-gray-700 text-xs sm:text-sm underline"
-                              title="Undo"
-                            >
-                              Undo
-                            </button>
+                            <div className="flex flex-col items-end gap-1">
+                              {task.completedBy && (
+                                <span className="text-xs text-gray-500">
+                                  ✓ by {task.completedBy}
+                                </span>
+                              )}
+                              {/* Only show undo if current user completed it OR if parent viewing */}
+                              {(isParent || !task.assignedTo || session?.user?.name === task.completedBy) && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleUndoTask(task.id, task.title)
+                                  }}
+                                  className="text-gray-500 hover:text-gray-700 text-xs sm:text-sm underline"
+                                  title="Undo"
+                                >
+                                  Undo
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
                       </div>

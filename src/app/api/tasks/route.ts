@@ -52,9 +52,16 @@ export async function GET(request: NextRequest) {
         },
         completions: {
           where: {
-            userId: user.id,
             completedAt: {
               gte: new Date(new Date().setHours(0, 0, 0, 0)) // Today's completions
+            }
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true
+              }
             }
           }
         }
@@ -62,9 +69,16 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' }
     })
 
-    // Transform tasks to include completion status
+    // Transform tasks to include completion status WITH user info
     const tasksWithCompletionStatus = tasks.map(task => {
-      const completedToday = task.completions.length > 0
+      // Find if the ASSIGNED person completed it (or current user if viewing)
+      const assignedUserId = task.assignedTo?.id || user.id
+      const completedByAssignedUser = task.completions.some(c => c.userId === assignedUserId)
+      
+      // Get who completed it (if anyone)
+      const completedBy = task.completions.length > 0 
+        ? task.completions.map(c => c.user.name).join(', ')
+        : null
       
       return {
         id: task.id,
@@ -74,12 +88,12 @@ export async function GET(request: NextRequest) {
         category: task.category,
         assignedTo: task.assignedTo,
         createdBy: task.createdBy,
-        completed: completedToday, // For backwards compatibility
-        completedToday: completedToday,
+        completedToday: completedByAssignedUser,
+        completedBy: completedBy, // NEW: Show who completed it
         isRecurring: task.isRecurring,
         daysOfWeek: task.daysOfWeek,
         timePeriod: task.timePeriod,
-        recurringEndDate: task.recurringEndDate // NEW: Include end date in response
+        recurringEndDate: task.recurringEndDate
       }
     })
 
@@ -91,7 +105,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Create a new task
+// POST - Create a new task (keep existing code)
 export async function POST(request: NextRequest) {
   try {
     console.log('POST /api/tasks - Starting request')
@@ -119,18 +133,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     console.log('Request body:', body)
     
-    //  NEW: Extract recurringEndDate from request body
-    const { 
-      title, 
-      description, 
-      points, 
-      category, 
-      assignedToId, 
-      isRecurring, 
-      daysOfWeek, 
-      timePeriod,
-      recurringEndDate
-    } = body
+    const { title, description, points, category, assignedToId, isRecurring, daysOfWeek, timePeriod, recurringEndDate } = body
 
     // Create family if it doesn't exist
     let familyId = user.familyId
@@ -151,21 +154,6 @@ export async function POST(request: NextRequest) {
       console.log('Created family:', familyId)
     }
 
-    // NEW: Validate and process end date
-    let endDate = null
-    if (isRecurring && recurringEndDate) {
-      endDate = new Date(recurringEndDate)
-      
-      // Ensure end date is in the future
-      if (endDate <= new Date()) {
-        return NextResponse.json({ 
-          error: 'End date must be in the future' 
-        }, { status: 400 })
-      }
-      
-      console.log('Task will end on:', endDate.toISOString())
-    }
-
     console.log('Creating task with familyId:', familyId, 'category:', category)
 
     const task = await prisma.task.create({
@@ -180,7 +168,7 @@ export async function POST(request: NextRequest) {
         isRecurring: isRecurring || false,
         daysOfWeek: daysOfWeek || [],
         timePeriod: timePeriod || 'ANYTIME',
-        recurringEndDate: endDate
+        recurringEndDate: recurringEndDate ? new Date(recurringEndDate) : null
       },
       include: {
         assignedTo: {
