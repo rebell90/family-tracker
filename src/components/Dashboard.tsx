@@ -164,38 +164,22 @@ export default function Dashboard() {
     return { text: `Ends ${endDate.toLocaleDateString()}`, color: 'bg-blue-100 text-blue-700', icon: '📅' }
   }
 
-  const fetchTasks = async () => {
-    try {
-      const response = await fetch('/api/tasks')
-      const result = await response.json()
-      
-      console.log('API Response:', result)
-      
-      const data: Task[] = Array.isArray(result) ? result : (result.tasks || [])
-      
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      
-      const completionsResponse = await fetch('/api/tasks/todays-completions')
-      const todaysCompletions: TaskCompletion[] = await completionsResponse.json()
-      const completedTodayIds = new Set(todaysCompletions.map((c) => c.taskId))
-      
-      const skipsResponse = await fetch('/api/tasks/todays-skips')
-      const todaysSkips = await skipsResponse.json()
-      const skippedTodayIds = new Set(todaysSkips.map((s: TaskSkip) => s.taskId))
-      
-      const tasksWithTodayStatus = data.map((task) => ({
-        ...task,
-        completedToday: completedTodayIds.has(task.id) || 
-                        Boolean(task.completedAt && new Date(task.completedAt) >= today),
-        skippedToday: skippedTodayIds.has(task.id)
-      }))
-      
-      setTasks(tasksWithTodayStatus)
-    } catch (error) {
-      console.error('Error fetching tasks:', error)
-    }
+const fetchTasks = async () => {
+  try {
+    const response = await fetch('/api/tasks')
+    const result = await response.json()
+    
+    console.log('API Response:', result)
+    
+    const data: Task[] = Array.isArray(result) ? result : (result.tasks || [])
+    
+    // The API already includes correct completion status per user
+    // Just use the data directly!
+    setTasks(data)
+  } catch (error) {
+    console.error('Error fetching tasks:', error)
   }
+}
 
   const fetchUserPoints = async () => {
     try {
