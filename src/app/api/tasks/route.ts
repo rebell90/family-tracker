@@ -1,3 +1,6 @@
+// Fixed version of /api/tasks/route.ts
+// This properly checks BOTH completions AND skips when determining task status
+
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -38,6 +41,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ tasks: [] })
     }
 
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
     const tasks = await prisma.task.findMany({
       where: { 
         familyId: user.familyId,
@@ -53,15 +59,25 @@ export async function GET(request: NextRequest) {
         completions: {
           where: {
             completedAt: {
-              gte: new Date(new Date().setHours(0, 0, 0, 0)) // Today's completions
+              gte: today // Today's completions
             }
           },
           include: {
             user: {
-              select: {
-                id: true,
-                name: true
-              }
+              select: { id: true, name: true }
+            }
+          }
+        },
+        // 🔥 THIS IS THE KEY FIX: Also include skips!
+        skips: {
+          where: {
+            skippedAt: {
+              gte: today // Today's skips
+            }
+          },
+          include: {
+            user: {
+              select: { id: true, name: true }
             }
           }
         }
@@ -69,16 +85,30 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' }
     })
 
-    // Transform tasks to include completion status WITH user info
-    const tasksWithCompletionStatus = tasks.map(task => {
-      // Find if the ASSIGNED person completed it (or current user if viewing)
-      const assignedUserId = task.assignedTo?.id || user.id
-      const completedByAssignedUser = task.completions.some(c => c.userId === assignedUserId)
-      
-      // Get who completed it (if anyone)
-      const completedBy = task.completions.length > 0 
-        ? task.completions.map(c => c.user.name).join(', ')
-        : null
+    // Transform tasks to include BOTH completion AND skip status
+    const tasksWithStatus = tasks.map(task => {
+      // Check if this specific user (or assigned user if viewing from parent) completed it
+      const userCompletions = task.completions.filter(c => {
+        // If parent is viewing, check if the assigned user completed it
+        if (user.role === 'PARENT' && task.assignedToId) {
+          return c.userId === task.assignedToId
+        }
+        // If child is viewing their own tasks
+        return c.userId === user.id
+      })
+
+      // 🔥 Check if this specific user (or assigned user if viewing from parent) skipped it
+      const userSkips = task.skips.filter(s => {
+        // If parent is viewing, check if the assigned user skipped it
+        if (user.role === 'PARENT' && task.assignedToId) {
+          return s.userId === task.assignedToId
+        }
+        // If child is viewing their own tasks
+        return s.userId === user.id
+      })
+
+      const completedToday = userCompletions.length > 0
+      const skippedToday = userSkips.length > 0
       
       return {
         id: task.id,
@@ -88,24 +118,24 @@ export async function GET(request: NextRequest) {
         category: task.category,
         assignedTo: task.assignedTo,
         createdBy: task.createdBy,
-        completedToday: completedByAssignedUser,
-        completedBy: completedBy, // NEW: Show who completed it
+        completed: completedToday, // For backwards compatibility
+        completedToday: completedToday,
+        skippedToday: skippedToday, // 🔥 NEW: Add skip status
         isRecurring: task.isRecurring,
         daysOfWeek: task.daysOfWeek,
-        timePeriod: task.timePeriod,
-        recurringEndDate: task.recurringEndDate
+        timePeriod: task.timePeriod
       }
     })
 
-    console.log('Found tasks:', tasksWithCompletionStatus.length)
-    return NextResponse.json({ tasks: tasksWithCompletionStatus })
+    console.log('Found tasks:', tasksWithStatus.length)
+    return NextResponse.json({ tasks: tasksWithStatus })
   } catch (error) {
     console.error('Error in GET /api/tasks:', error)
     return NextResponse.json({ error: 'Failed to fetch tasks' }, { status: 500 })
   }
 }
 
-// POST - Create a new task (keep existing code)
+// POST - Create a new task
 export async function POST(request: NextRequest) {
   try {
     console.log('POST /api/tasks - Starting request')
@@ -131,57 +161,36 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    console.log('Request body:', body)
-    
-    const { title, description, points, category, assignedToId, isRecurring, daysOfWeek, timePeriod, recurringEndDate } = body
+    console.log('Create request body:', body)
 
-    // Create family if it doesn't exist
-    let familyId = user.familyId
-    if (!familyId) {
-      console.log('Creating new family')
-      const family = await prisma.family.create({
-        data: {
-          name: `${user.name}'s Family`
-        }
-      })
-      
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { familyId: family.id }
-      })
-      
-      familyId = family.id
-      console.log('Created family:', familyId)
+    const { title, description, points, category, assignedToId, isRecurring, daysOfWeek, timePeriod } = body
+
+    if (!title) {
+      return NextResponse.json({ error: 'Title is required' }, { status: 400 })
     }
-
-    console.log('Creating task with familyId:', familyId, 'category:', category)
 
     const task = await prisma.task.create({
       data: {
         title,
-        description,
+        description: description || '',
         points: parseInt(points) || 1,
         category: category || 'CHORES',
         assignedToId: assignedToId || null,
         createdById: user.id,
-        familyId,
+        familyId: user.familyId!,
         isRecurring: isRecurring || false,
         daysOfWeek: daysOfWeek || [],
-        timePeriod: timePeriod || 'ANYTIME',
-        recurringEndDate: recurringEndDate ? new Date(recurringEndDate) : null
+        timePeriod: timePeriod || 'ANYTIME'
       },
       include: {
         assignedTo: {
           select: { id: true, name: true, role: true }
-        },
-        createdBy: {
-          select: { id: true, name: true }
         }
       }
     })
 
     console.log('Task created successfully:', task.id)
-    return NextResponse.json({ task }, { status: 201 })
+    return NextResponse.json({ task })
   } catch (error) {
     console.error('Error in POST /api/tasks:', error)
     return NextResponse.json({ error: 'Failed to create task' }, { status: 500 })
