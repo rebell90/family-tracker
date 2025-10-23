@@ -941,6 +941,14 @@ const getTasksForToday = () => {
                 <h3 className="font-medium text-gray-800">Manage Habits</h3>
                 <p className="text-sm text-gray-600 mt-1">Track reading, exercise, and healthy habits</p>
               </button>
+
+              <Link
+                href="/reports"
+                className="p-3 sm:p-4 text-left rounded-lg border border-gray-200 hover:border-green-300 transition-colors block"
+              >
+                <h3 className="font-medium text-gray-800 text-sm sm:text-base">View Reports</h3>
+                <p className="text-xs sm:text-sm text-gray-600 mt-1">Weekly progress and analytics</p>
+              </Link>
             </div>
           </div>
         )}
