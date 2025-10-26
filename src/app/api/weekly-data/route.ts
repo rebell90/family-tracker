@@ -15,6 +15,14 @@ interface AuthSession {
   }
 }
 
+// ✅ NEW: Add this interface for daily data structure
+interface DailyDataEntry {
+  date: string
+  tasks: number
+  points: number
+  habits: number
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = (await getServerSession(authOptions)) as AuthSession | null
@@ -121,7 +129,8 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const dailyData: Record<string, any> = {}
+    // ✅ FIXED: Replace 'any' with proper type
+    const dailyData: Record<string, DailyDataEntry> = {}
 
     for (
       let d = new Date(startDate);
