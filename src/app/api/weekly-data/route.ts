@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { UserRole } from '@prisma/client'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,7 +66,9 @@ export async function GET(request: NextRequest) {
     const endDate = new Date(weekEnd)
     endDate.setHours(23, 59, 59, 999)
 
-    const childFilter = childId ? { id: childId } : { role: 'CHILD' }
+      const childFilter = childId
+          ? { id: childId }
+          : { role: UserRole.CHILD } 
 
     const children = await prisma.user.findMany({
       where: {
