@@ -110,6 +110,7 @@ export default function Dashboard() {
   const [overdueTasks, setOverdueTasks] = useState<number>(0)
   const [showHabitManager, setShowHabitManager] = useState(false)
   const [showHabitTracker, setShowHabitTracker] = useState(false)
+  const [showWeeklyView, setShowWeeklyView] = useState(false)
 
   const user = session?.user as { name?: string; role?: string } | undefined
   const isParent = user?.role === 'PARENT'
@@ -935,6 +936,14 @@ const getTasksForToday = () => {
               >
                 <h3 className="font-medium text-gray-800">Manage Habits</h3>
                 <p className="text-sm text-gray-600 mt-1">Track reading, exercise, and healthy habits</p>
+              </button>
+
+              <button
+                onClick={() => setShowWeeklyView(true)}
+                className="p-4 text-left rounded-lg border border-gray-200 hover:border-green-300 transition-colors"
+              >
+                <h3 className="font-medium text-gray-800">Weekly View</h3>
+                <p className="text-sm text-gray-600 mt-1">View children's progress by week</p>
               </button>
 
               <Link
