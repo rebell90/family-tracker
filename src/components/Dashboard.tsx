@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { AlertCircle, ExternalLink } from 'lucide-react'
 import HabitTracker from './HabitTracker'
 import HabitManager from './HabitManager'
+import ParentWeeklyView from './ParentWeeklyView'
 
 interface Task {
   id: string
@@ -467,6 +468,26 @@ const getTasksForToday = () => {
       </div>
     )
   }
+
+//Weekly Reporting
+  if (isParent && showWeeklyView) {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold text-gray-800">Weekly Progress</h1>
+          <button
+            onClick={() => setShowWeeklyView(false)}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+        <ParentWeeklyView />
+      </div>
+    </div>
+  )
+}
 
   // Habit Tracker view (Kids)
   if (showHabitTracker) {
@@ -943,7 +964,7 @@ const getTasksForToday = () => {
                 className="p-4 text-left rounded-lg border border-gray-200 hover:border-green-300 transition-colors"
               >
                 <h3 className="font-medium text-gray-800">Weekly View</h3>
-                <p className="text-sm text-gray-600 mt-1">View children's progress by week</p>
+                <p className="text-sm text-gray-600 mt-1">View children&apos;s progress by week</p>
               </button>
 
               <Link
