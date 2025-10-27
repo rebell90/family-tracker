@@ -383,20 +383,19 @@ export default function ParentWeeklyView() {
                 <h2 className="text-xl font-semibold text-gray-800 mb-4">Category Breakdown</h2>
                 <ResponsiveContainer width="100%" height={250}>
                   <PieChart>
-                    <Pie
-                      data={categoryData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }: { name: string; percent: number }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {categoryData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
+                                      <Pie
+                                          data={categoryData}
+                                          cx="50%"
+                                          cy="50%"
+                                          outerRadius={80}
+                                          fill="#8884d8"
+                                          dataKey="value"
+                                          label
+                                      >
+                                          {categoryData.map((entry, index) => (
+                                              <Cell key={`cell-${index}`} fill={entry.color} />
+                                          ))}
+                                      </Pie>
                     <Tooltip />
                   </PieChart>
                 </ResponsiveContainer>
