@@ -1,198 +1,324 @@
-// Fixed version of /api/tasks/route.ts
-// This properly checks BOTH completions AND skips when determining task status
+// src/app/api/tasks/route.ts
+// Updated to automatically create notifications when tasks are assigned
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { notifyTaskAssigned } from '@/lib/notifications'
 
-interface AuthSession {
-  user: {
-    id: string;
-    name?: string | null;
-    email?: string | null;
-    role?: string | null;
-    familyId?: string | null;
-  }
-}
-
-// GET - List all tasks for the family
+// GET /api/tasks - Fetch family tasks
 export async function GET(request: NextRequest) {
   try {
-    console.log('GET /api/tasks - Starting request')
-    
-    const session = await getServerSession(authOptions) as AuthSession | null
-    console.log('Session:', session?.user?.id, session?.user?.role)
+    const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
-      console.log('No session found')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      include: { family: true }
+      select: { familyId: true, role: true },
     })
 
-    console.log('User found:', user?.id, 'Family:', user?.familyId)
-
     if (!user?.familyId) {
-      console.log('No family ID, returning empty tasks')
       return NextResponse.json({ tasks: [] })
     }
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
     const tasks = await prisma.task.findMany({
-      where: { 
+      where: {
         familyId: user.familyId,
-        isActive: true 
       },
       include: {
         assignedTo: {
-          select: { id: true, name: true, role: true }
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
         },
         createdBy: {
-          select: { id: true, name: true }
+          select: {
+            id: true,
+            name: true,
+          },
         },
         completions: {
-          where: {
-            completedAt: {
-              gte: today // Today's completions
-            }
+          orderBy: {
+            completedAt: 'desc',
           },
-          include: {
-            user: {
-              select: { id: true, name: true }
-            }
-          }
+          take: 1,
         },
-        // 🔥 THIS IS THE KEY FIX: Also include skips!
-        skips: {
-          where: {
-            skippedAt: {
-              gte: today // Today's skips
-            }
-          },
-          include: {
-            user: {
-              select: { id: true, name: true }
-            }
-          }
-        }
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: {
+        createdAt: 'desc',
+      },
     })
 
-    // Transform tasks to include BOTH completion AND skip status
-    const tasksWithStatus = tasks.map(task => {
-      // Check if this specific user (or assigned user if viewing from parent) completed it
-      const userCompletions = task.completions.filter(c => {
-        // If parent is viewing, check if the assigned user completed it
-        if (user.role === 'PARENT' && task.assignedToId) {
-          return c.userId === task.assignedToId
-        }
-        // If child is viewing their own tasks
-        return c.userId === user.id
-      })
-
-      // 🔥 Check if this specific user (or assigned user if viewing from parent) skipped it
-      const userSkips = task.skips.filter(s => {
-        // If parent is viewing, check if the assigned user skipped it
-        if (user.role === 'PARENT' && task.assignedToId) {
-          return s.userId === task.assignedToId
-        }
-        // If child is viewing their own tasks
-        return s.userId === user.id
-      })
-
-      const completedToday = userCompletions.length > 0
-      const skippedToday = userSkips.length > 0
-      
-      return {
-        id: task.id,
-        title: task.title,
-        description: task.description,
-        points: task.points,
-        category: task.category,
-        assignedTo: task.assignedTo,
-        createdBy: task.createdBy,
-        completed: completedToday, // For backwards compatibility
-        completedToday: completedToday,
-        skippedToday: skippedToday, // 🔥 NEW: Add skip status
-        isRecurring: task.isRecurring,
-        daysOfWeek: task.daysOfWeek,
-        timePeriod: task.timePeriod
-      }
-    })
-
-    console.log('Found tasks:', tasksWithStatus.length)
-    return NextResponse.json({ tasks: tasksWithStatus })
+    return NextResponse.json({ tasks })
   } catch (error) {
-    console.error('Error in GET /api/tasks:', error)
-    return NextResponse.json({ error: 'Failed to fetch tasks' }, { status: 500 })
+    console.error('Error fetching tasks:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch tasks' },
+      { status: 500 }
+    )
   }
 }
 
-// POST - Create a new task
+// POST /api/tasks - Create a new task
+// NOW WITH AUTOMATIC NOTIFICATIONS! 🔔
 export async function POST(request: NextRequest) {
   try {
-    console.log('POST /api/tasks - Starting request')
-    
-    const session = await getServerSession(authOptions) as AuthSession | null
-    console.log('Session:', session?.user?.id, session?.user?.role)
+    const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
-      console.log('No session found')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      include: { family: true }
+      select: { 
+        familyId: true, 
+        role: true,
+        name: true,
+      },
     })
 
-    console.log('User found:', user?.id, 'Role:', user?.role)
+    if (!user?.familyId) {
+      return NextResponse.json(
+        { error: 'You must be part of a family to create tasks' },
+        { status: 400 }
+      )
+    }
 
-    if (user?.role !== 'PARENT') {
-      console.log('User is not a parent')
-      return NextResponse.json({ error: 'Only parents can create tasks' }, { status: 403 })
+    if (user.role !== 'PARENT') {
+      return NextResponse.json(
+        { error: 'Only parents can create tasks' },
+        { status: 403 }
+      )
     }
 
     const body = await request.json()
-    console.log('Create request body:', body)
-
-    const { title, description, points, category, assignedToId, isRecurring, daysOfWeek, timePeriod } = body
+    const { 
+      title, 
+      description, 
+      points, 
+      category, 
+      assignedToId,
+      isRecurring,
+      daysOfWeek,
+    } = body
 
     if (!title) {
-      return NextResponse.json({ error: 'Title is required' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Task title is required' },
+        { status: 400 }
+      )
     }
 
+    // Create the task
     const task = await prisma.task.create({
       data: {
         title,
-        description: description || '',
-        points: parseInt(points) || 1,
-        category: category || 'CHORES',
+        description: description || null,
+        points: points || 10,
+        category: category || null,
         assignedToId: assignedToId || null,
-        createdById: user.id,
-        familyId: user.familyId!,
+        createdById: session.user.id,
+        familyId: user.familyId,
         isRecurring: isRecurring || false,
-        daysOfWeek: daysOfWeek || [],
-        timePeriod: timePeriod || 'ANYTIME'
+        daysOfWeek: daysOfWeek || null,
       },
       include: {
         assignedTo: {
-          select: { id: true, name: true, role: true }
-        }
-      }
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
     })
 
-    console.log('Task created successfully:', task.id)
-    return NextResponse.json({ task })
+    // 🔔 NEW: Send notification if task is assigned to someone
+    if (task.assignedToId && task.assignedTo) {
+      try {
+        await notifyTaskAssigned({
+          assignedToId: task.assignedToId,
+          assignedToName: task.assignedTo.name || 'there',
+          taskTitle: task.title,
+          taskId: task.id,
+          assignerName: user.name || 'Someone',
+        })
+        console.log(`✅ Notification sent for task assignment: ${task.title}`)
+      } catch (notifError) {
+        // Don't fail the whole request if notification fails
+        console.error('Failed to send notification:', notifError)
+      }
+    }
+
+    return NextResponse.json({ task }, { status: 201 })
   } catch (error) {
-    console.error('Error in POST /api/tasks:', error)
-    return NextResponse.json({ error: 'Failed to create task' }, { status: 500 })
+    console.error('Error creating task:', error)
+    return NextResponse.json(
+      { error: 'Failed to create task' },
+      { status: 500 }
+    )
+  }
+}
+
+// DELETE /api/tasks - Delete a task
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+    
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const taskId = searchParams.get('id')
+
+    if (!taskId) {
+      return NextResponse.json(
+        { error: 'Task ID is required' },
+        { status: 400 }
+      )
+    }
+
+    // Verify user owns this task
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+    })
+
+    if (!task) {
+      return NextResponse.json(
+        { error: 'Task not found' },
+        { status: 404 }
+      )
+    }
+
+    if (task.createdById !== session.user.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized to delete this task' },
+        { status: 403 }
+      )
+    }
+
+    await prisma.task.delete({
+      where: { id: taskId },
+    })
+
+    return NextResponse.json({ message: 'Task deleted successfully' })
+  } catch (error) {
+    console.error('Error deleting task:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete task' },
+      { status: 500 }
+    )
+  }
+}
+
+// PATCH /api/tasks - Update a task
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+    
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { name: true },
+    })
+
+    const body = await request.json()
+    const { 
+      taskId, 
+      title, 
+      description, 
+      points, 
+      category,
+      assignedToId,
+      isRecurring,
+      daysOfWeek,
+    } = body
+
+    if (!taskId) {
+      return NextResponse.json(
+        { error: 'Task ID is required' },
+        { status: 400 }
+      )
+    }
+
+    // Verify user owns this task
+    const existingTask = await prisma.task.findUnique({
+      where: { id: taskId },
+    })
+
+    if (!existingTask) {
+      return NextResponse.json(
+        { error: 'Task not found' },
+        { status: 404 }
+      )
+    }
+
+    if (existingTask.createdById !== session.user.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized to update this task' },
+        { status: 403 }
+      )
+    }
+
+    // Check if assignment is changing
+    const assignmentChanged = assignedToId !== existingTask.assignedToId
+
+    // Update the task
+    const updatedTask = await prisma.task.update({
+      where: { id: taskId },
+      data: {
+        title: title || existingTask.title,
+        description: description !== undefined ? description : existingTask.description,
+        points: points !== undefined ? points : existingTask.points,
+        category: category !== undefined ? category : existingTask.category,
+        assignedToId: assignedToId !== undefined ? assignedToId : existingTask.assignedToId,
+        isRecurring: isRecurring !== undefined ? isRecurring : existingTask.isRecurring,
+        daysOfWeek: daysOfWeek !== undefined ? daysOfWeek : existingTask.daysOfWeek,
+      },
+      include: {
+        assignedTo: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    })
+
+    // 🔔 NEW: Send notification if task assignment changed
+    if (assignmentChanged && updatedTask.assignedToId && updatedTask.assignedTo) {
+      try {
+        await notifyTaskAssigned({
+          assignedToId: updatedTask.assignedToId,
+          assignedToName: updatedTask.assignedTo.name || 'there',
+          taskTitle: updatedTask.title,
+          taskId: updatedTask.id,
+          assignerName: user?.name || 'Someone',
+        })
+        console.log(`✅ Notification sent for task re-assignment: ${updatedTask.title}`)
+      } catch (notifError) {
+        console.error('Failed to send notification:', notifError)
+      }
+    }
+
+    return NextResponse.json({ task: updatedTask })
+  } catch (error) {
+    console.error('Error updating task:', error)
+    return NextResponse.json(
+      { error: 'Failed to update task' },
+      { status: 500 }
+    )
   }
 }
