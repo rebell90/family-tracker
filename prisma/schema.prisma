@@ -60,6 +60,7 @@ model User {
   createdHabits     Habit[]              @relation("HabitCreatedBy")
   assignedHabits    Habit[]              @relation("HabitAssignedTo")
   habitLogs         HabitLog[]
+  notifications     Notification[]
 
   @@map("users")
 }
@@ -107,11 +108,12 @@ model Task {
   recurringEndDate DateTime?
 
   // Relations
-  createdBy   User               @relation("TaskCreator", fields: [createdById], references: [id])
-  assignedTo  User?              @relation("TaskAssignee", fields: [assignedToId], references: [id])
-  family      Family             @relation(fields: [familyId], references: [id])
-  completions TaskCompletion[]
-  skips       TaskSkip[]       
+  createdBy      User               @relation("TaskCreator", fields: [createdById], references: [id])
+  assignedTo     User?              @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  family         Family             @relation(fields: [familyId], references: [id])
+  completions    TaskCompletion[]
+  skips          TaskSkip[]
+  notifications  Notification[]       
 
   @@map("tasks")
 }
@@ -276,4 +278,33 @@ enum Frequency {
   DAILY
   WEEKLY
   CUSTOM
+}
+
+// Notification Schema
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String   // Who receives this notification
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type      NotificationType  // TASK_ASSIGNED, TASK_COMPLETED, REMINDER, etc.
+  title     String            // "New Task Assigned"
+  message   String            // "Dad assigned you 'Clean your room'"
+  
+  taskId    String?           // Optional link to a task
+  task      Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  
+  read      Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  
+  @@index([userId, read])  // For fast queries on unread notifications
+  @@index([userId, createdAt])
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_COMPLETED
+  TASK_DUE_SOON
+  REWARD_APPROVED
+  REWARD_DENIED
+  REMINDER
 }

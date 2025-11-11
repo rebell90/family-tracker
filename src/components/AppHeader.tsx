@@ -3,6 +3,7 @@
 import { useSession, signOut } from 'next-auth/react'
 import { LogOut, User, Home } from 'lucide-react'
 import Link from 'next/link'
+import NotificationBell from '@/components/NotificationBell'
 
 export default function AppHeader() {
   const { data: session } = useSession()
@@ -32,6 +33,7 @@ export default function AppHeader() {
                 ({user?.role === 'PARENT' ? '👨‍👩‍👧‍👦 Parent' : '🧒 Child'})
               </span>
             </div>
+             <NotificationBell />
             
 <button
   onClick={() => signOut({ callbackUrl: window.location.origin + '/auth/signin' })}
