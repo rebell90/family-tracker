@@ -1,6 +1,5 @@
 // src/app/api/rewards/approve/route.ts
-// TEMPORARY VERSION: Works with your existing schema
-// Updated to automatically notify children when rewards are approved/denied
+// Type-safe version that works with your existing schema
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -72,25 +71,13 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
-    // Prepare update data
-    const updateData: any = {
-      approvedById: session.user.id,
-      resolvedAt: new Date(),
-    }
-
-    // Only add status if it exists in your schema
-    // TypeScript will error if this field doesn't exist, so we use 'any' for now
-    try {
-      updateData.status = approved ? 'APPROVED' : 'DENIED'
-    } catch {
-      // Skip status update if field doesn't exist
-      console.log('Status field not available in schema, skipping...')
-    }
-
-    // Update redemption
+    // Update redemption with type-safe data
     const updatedRedemption = await prisma.rewardRedemption.update({
       where: { id: redemptionId },
-      data: updateData,
+      data: {
+        approvedById: session.user.id,
+        resolvedAt: new Date(),
+      },
     })
 
     // If denied, refund the points
