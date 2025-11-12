@@ -1,5 +1,5 @@
 // src/app/api/rewards/approve/route.ts
-// Type-safe version that works with your existing schema
+// MINIMAL VERSION: Works with your exact current schema
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -42,7 +42,7 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
-    // Fetch the redemption with all fields
+    // Fetch the redemption
     const redemption = await prisma.rewardRedemption.findUnique({
       where: { id: redemptionId },
       include: {
@@ -63,20 +63,19 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
-    // Check if already processed (if resolvedAt exists, it's been processed)
-    if (redemption.resolvedAt) {
+    // Check if already approved (has approvedById set)
+    if (redemption.approvedById) {
       return NextResponse.json(
         { error: 'Redemption has already been processed' },
         { status: 400 }
       )
     }
 
-    // Update redemption with type-safe data
+    // Update redemption - only update approvedById (we know this field exists)
     const updatedRedemption = await prisma.rewardRedemption.update({
       where: { id: redemptionId },
       data: {
         approvedById: session.user.id,
-        resolvedAt: new Date(),
       },
     })
 
