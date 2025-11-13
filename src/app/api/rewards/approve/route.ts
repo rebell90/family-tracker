@@ -1,5 +1,6 @@
 // src/app/api/rewards/approve/route.ts
-// MINIMAL VERSION: Works with your exact current schema
+// Works with YOUR exact RewardRedemption schema
+// Fixed: Uses approvedBy (not approvedById)
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -63,19 +64,20 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
-    // Check if already approved (has approvedById set)
-    if (redemption.approvedById) {
+    // Check if already processed (if approvedBy is set, it's been processed)
+    if (redemption.approvedBy) {
       return NextResponse.json(
         { error: 'Redemption has already been processed' },
         { status: 400 }
       )
     }
 
-    // Update redemption - only update approvedById (we know this field exists)
+    // Update redemption with approved status
     const updatedRedemption = await prisma.rewardRedemption.update({
       where: { id: redemptionId },
       data: {
-        approvedById: session.user.id,
+        approved: approved, // Set to true for approved, false for denied
+        approvedBy: session.user.id,
       },
     })
 
