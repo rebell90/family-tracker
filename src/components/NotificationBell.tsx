@@ -1,10 +1,10 @@
-// src/components/NotificationBell.tsx
-// Notification bell with dropdown, unread count, and auto-polling
-
 'use client'
 
+// src/components/NotificationBell.tsx
+// Hydration-safe notification bell with dropdown, unread count, and auto-polling
+
 import { useState, useEffect, useRef } from 'react'
-import { Bell, Check, CheckCheck, X } from 'lucide-react'
+import { Bell, Check, CheckCheck } from 'lucide-react'
 
 interface Notification {
   id: string
@@ -25,7 +25,13 @@ export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Prevent hydration issues - only render after mount
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Fetch notifications
   const fetchNotifications = async () => {
@@ -93,10 +99,6 @@ export default function NotificationBell() {
     if (!notification.read) {
       markAsRead(notification.id)
     }
-
-    // If notification has a task, you could navigate to it
-    // For now, we'll just mark it as read
-    // In the future, you could add: router.push(`/tasks/${notification.task?.id}`)
   }
 
   // Close dropdown when clicking outside
@@ -113,16 +115,25 @@ export default function NotificationBell() {
     }
   }, [isOpen])
 
-  // Poll for new notifications every 60 seconds
+  // Fetch notifications after mount (prevents hydration issues)
   useEffect(() => {
-    fetchNotifications() // Initial fetch
+    if (!mounted) return
 
+    // Delay initial fetch slightly to avoid hydration issues
+    const timer = setTimeout(() => {
+      fetchNotifications()
+    }, 100)
+
+    // Poll for new notifications every 60 seconds
     const interval = setInterval(() => {
       fetchNotifications()
-    }, 60000) // Poll every 60 seconds
+    }, 60000)
 
-    return () => clearInterval(interval)
-  }, [])
+    return () => {
+      clearTimeout(timer)
+      clearInterval(interval)
+    }
+  }, [mounted])
 
   // Get notification icon based on type
   const getNotificationIcon = (type: string) => {
@@ -153,6 +164,15 @@ export default function NotificationBell() {
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
     if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`
     return date.toLocaleDateString()
+  }
+
+  // Don't render until mounted (prevents hydration mismatch)
+  if (!mounted) {
+    return (
+      <button className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors">
+        <Bell size={24} className="text-gray-600" />
+      </button>
+    )
   }
 
   return (
