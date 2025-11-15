@@ -1,5 +1,6 @@
 // src/app/api/tasks/route.ts
 // Updated to automatically create notifications when tasks are assigned
+// FIXED: Now properly calculates completedToday, completedAt, completedBy for each task
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -7,7 +8,9 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { notifyTaskAssigned } from '@/lib/notifications'
 
-// GET /api/tasks - Fetch family tasks
+export const dynamic = 'force-dynamic'
+
+// GET /api/tasks - Fetch family tasks with completion status
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -18,13 +21,18 @@ export async function GET(request: NextRequest) {
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { familyId: true, role: true },
+      select: { familyId: true, role: true, name: true },
     })
 
     if (!user?.familyId) {
       return NextResponse.json({ tasks: [] })
     }
 
+    // Get today's start time
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    // Fetch all family tasks
     const tasks = await prisma.task.findMany({
       where: {
         familyId: user.familyId,
@@ -44,6 +52,19 @@ export async function GET(request: NextRequest) {
           },
         },
         completions: {
+          where: {
+            userId: session.user.id, // Only get current user's completions
+            completedAt: {
+              gte: today, // Only today's completions
+            },
+          },
+          include: {
+            user: {
+              select: {
+                name: true,
+              },
+            },
+          },
           orderBy: {
             completedAt: 'desc',
           },
@@ -55,7 +76,19 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    return NextResponse.json({ tasks })
+    // Process tasks to add completion info
+    const processedTasks = tasks.map(task => {
+      const todayCompletion = task.completions[0]
+      
+      return {
+        ...task,
+        completedToday: !!todayCompletion,
+        completedAt: todayCompletion?.completedAt || null,
+        completedBy: todayCompletion?.user?.name || null,
+      }
+    })
+
+    return NextResponse.json({ tasks: processedTasks })
   } catch (error) {
     console.error('Error fetching tasks:', error)
     return NextResponse.json(
