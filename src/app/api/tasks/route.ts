@@ -1,6 +1,5 @@
 // src/app/api/tasks/route.ts
-// Updated to automatically create notifications when tasks are assigned
-// FIXED: Now properly calculates completedToday, completedAt, completedBy for each task
+// FULLY FIXED: Returns completedToday, completedAt, completedBy, AND skippedToday
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -10,7 +9,7 @@ import { notifyTaskAssigned } from '@/lib/notifications'
 
 export const dynamic = 'force-dynamic'
 
-// GET /api/tasks - Fetch family tasks with completion status
+// GET /api/tasks - Fetch family tasks with completion AND skip status
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -76,15 +75,32 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    // Process tasks to add completion info
+    // Fetch today's skips for the current user
+    const skips = await prisma.taskSkip.findMany({
+      where: {
+        userId: session.user.id,
+        skippedAt: {
+          gte: today,
+        },
+      },
+      select: {
+        taskId: true,
+      },
+    })
+
+    const skippedTaskIds = new Set(skips.map(skip => skip.taskId))
+
+    // Process tasks to add completion AND skip info
     const processedTasks = tasks.map(task => {
       const todayCompletion = task.completions[0]
+      const isSkippedToday = skippedTaskIds.has(task.id)
       
       return {
         ...task,
         completedToday: !!todayCompletion,
         completedAt: todayCompletion?.completedAt || null,
         completedBy: todayCompletion?.user?.name || null,
+        skippedToday: isSkippedToday, // ✅ NOW RETURNS SKIP STATUS!
       }
     })
 
