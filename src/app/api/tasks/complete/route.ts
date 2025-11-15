@@ -1,11 +1,14 @@
 // src/app/api/tasks/complete/route.ts
-// Updated to automatically notify parents when tasks are completed
+// Updated to accept optional completedAt for backdating overdue task completions
+// AND automatically notify parents when tasks are completed
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { notifyTaskCompleted } from '@/lib/notifications'
+
+export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { taskId } = body
+    const { taskId, completedAt } = body // ✅ NOW ACCEPTS completedAt!
 
     if (!taskId) {
       return NextResponse.json(
@@ -53,23 +56,29 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if already completed today
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    // Use provided completedAt or current time
+    const completionDate = completedAt ? new Date(completedAt) : new Date()
+    
+    // Check if already completed on this specific date
+    const startOfDay = new Date(completionDate)
+    startOfDay.setHours(0, 0, 0, 0)
+    const endOfDay = new Date(completionDate)
+    endOfDay.setHours(23, 59, 59, 999)
 
     const existingCompletion = await prisma.taskCompletion.findFirst({
       where: {
         taskId,
         userId: session.user.id,
         completedAt: {
-          gte: today,
+          gte: startOfDay,
+          lte: endOfDay,
         },
       },
     })
 
     if (existingCompletion) {
       return NextResponse.json(
-        { error: 'Task already completed today' },
+        { error: 'Task already completed for this date' },
         { status: 400 }
       )
     }
@@ -80,11 +89,12 @@ export async function POST(request: NextRequest) {
       select: { name: true },
     })
 
-    // Create task completion
+    // Create task completion with specified or current date
     const completion = await prisma.taskCompletion.create({
       data: {
         taskId,
         userId: session.user.id,
+        completedAt: completionDate, // ✅ Use the provided date!
       },
     })
 
@@ -102,7 +112,7 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // 🔔 NEW: Notify the parent who created the task
+    // 🔔 Notify the parent who created the task
     if (task.createdBy) {
       try {
         await notifyTaskCompleted({
