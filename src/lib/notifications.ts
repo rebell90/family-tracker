@@ -1,55 +1,47 @@
 // src/lib/notifications.ts
-// Helper functions for creating notifications
+// Helper functions to create notifications
+// NOW WITH REAL-TIME SSE SUPPORT! 🚀
 
-import { prisma } from '@/lib/prisma'
+import { prisma } from './prisma'
 
-export type NotificationType = 
-  | 'TASK_ASSIGNED'
-  | 'TASK_COMPLETED'
-  | 'TASK_DUE_SOON'
-  | 'REWARD_APPROVED'
-  | 'REWARD_DENIED'
-  | 'REMINDER'
-
-interface CreateNotificationParams {
-  userId: string
-  type: NotificationType
-  title: string
-  message: string
-  taskId?: string
-}
-
-/**
- * Create a notification for a user
- */
-export async function createNotification({
-  userId,
-  type,
-  title,
-  message,
-  taskId,
-}: CreateNotificationParams) {
+// Note: We'll import this dynamically to avoid circular dependencies
+async function sendSSENotification(userId: string, notification: any) {
   try {
-    const notification = await prisma.notification.create({
-      data: {
-        userId,
-        type,
-        title,
-        message,
-        taskId: taskId || null,
-      },
-    })
-    return notification
+    // Dynamic import to avoid build issues
+    const { sendNotificationToUser } = await import('@/app/api/notifications/stream/route')
+    return sendNotificationToUser(userId, notification)
   } catch (error) {
-    console.error('Error creating notification:', error)
-    throw error
+    // SSE not available or user not connected - that's OK, they'll get it on next poll
+    return false
   }
 }
 
-/**
- * Create a "Task Assigned" notification
- * Called when a parent assigns a task to a child
- */
+// Helper to create notification in database AND send via SSE
+async function createAndSendNotification(data: {
+  userId: string
+  type: string
+  title: string
+  message: string
+  taskId?: string
+}) {
+  // Create in database
+  const notification = await prisma.notification.create({
+    data: {
+      userId: data.userId,
+      type: data.type,
+      title: data.title,
+      message: data.message,
+      taskId: data.taskId || null,
+    },
+  })
+
+  // Send via SSE for instant delivery
+  await sendSSENotification(data.userId, notification)
+
+  return notification
+}
+
+// Notify child when task is assigned
 export async function notifyTaskAssigned({
   assignedToId,
   assignedToName,
@@ -63,7 +55,7 @@ export async function notifyTaskAssigned({
   taskId: string
   assignerName: string
 }) {
-  return createNotification({
+  return createAndSendNotification({
     userId: assignedToId,
     type: 'TASK_ASSIGNED',
     title: 'New Task Assigned',
@@ -72,11 +64,7 @@ export async function notifyTaskAssigned({
   })
 }
 
-/**
- * Create a "Task Completed" notification
- * Called when a child completes a task
- * Notifies the parent who created the task
- */
+// Notify parent when child completes task
 export async function notifyTaskCompleted({
   parentId,
   childName,
@@ -90,19 +78,16 @@ export async function notifyTaskCompleted({
   taskId: string
   pointsEarned: number
 }) {
-  return createNotification({
+  return createAndSendNotification({
     userId: parentId,
     type: 'TASK_COMPLETED',
-    title: 'Task Completed',
+    title: 'Task Completed! 🎉',
     message: `${childName} completed "${taskTitle}" and earned ${pointsEarned} points!`,
     taskId,
   })
 }
 
-/**
- * Create a "Reward Approved" notification
- * Called when a parent approves a reward redemption
- */
+// Notify child when reward is approved
 export async function notifyRewardApproved({
   childId,
   rewardTitle,
@@ -112,18 +97,15 @@ export async function notifyRewardApproved({
   rewardTitle: string
   approverName: string
 }) {
-  return createNotification({
+  return createAndSendNotification({
     userId: childId,
     type: 'REWARD_APPROVED',
     title: 'Reward Approved! 🎉',
-    message: `${approverName} approved your reward: "${rewardTitle}"`,
+    message: `${approverName} approved your "${rewardTitle}" reward! Enjoy!`,
   })
 }
 
-/**
- * Create a "Reward Denied" notification
- * Called when a parent denies a reward redemption
- */
+// Notify child when reward is denied
 export async function notifyRewardDenied({
   childId,
   rewardTitle,
@@ -133,52 +115,31 @@ export async function notifyRewardDenied({
   rewardTitle: string
   approverName: string
 }) {
-  return createNotification({
+  return createAndSendNotification({
     userId: childId,
     type: 'REWARD_DENIED',
     title: 'Reward Not Approved',
-    message: `${approverName} denied your reward: "${rewardTitle}". Points have been refunded.`,
+    message: `${approverName} did not approve your "${rewardTitle}" reward. Points have been refunded.`,
   })
 }
 
-/**
- * Create a reminder notification
- * Called by a scheduled job or manual reminder
- */
+// Send a general reminder notification
 export async function notifyReminder({
   userId,
-  taskTitle,
+  title,
+  message,
   taskId,
-  reminderMessage,
 }: {
   userId: string
-  taskTitle: string
-  taskId: string
-  reminderMessage?: string
+  title: string
+  message: string
+  taskId?: string
 }) {
-  return createNotification({
+  return createAndSendNotification({
     userId,
     type: 'REMINDER',
-    title: 'Task Reminder',
-    message: reminderMessage || `Don't forget to complete "${taskTitle}"!`,
+    title,
+    message,
     taskId,
   })
-}
-
-/**
- * Get unread notification count for a user
- */
-export async function getUnreadCount(userId: string): Promise<number> {
-  try {
-    const count = await prisma.notification.count({
-      where: {
-        userId,
-        read: false,
-      },
-    })
-    return count
-  } catch (error) {
-    console.error('Error getting unread count:', error)
-    return 0
-  }
 }
