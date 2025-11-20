@@ -4,11 +4,12 @@
 
 import { prisma } from './prisma'
 import { sendNotificationToUser, type SSENotification } from './sse-manager'
+import { NotificationType } from '@prisma/client'
 
 // Helper to create notification in database AND send via SSE
 async function createAndSendNotification(data: {
   userId: string
-  type: string
+  type: NotificationType
   title: string
   message: string
   taskId?: string
@@ -49,7 +50,7 @@ export async function notifyTaskAssigned({
 }) {
   return createAndSendNotification({
     userId: assignedToId,
-    type: 'TASK_ASSIGNED',
+    type: NotificationType.TASK_ASSIGNED,
     title: 'New Task Assigned',
     message: `${assignerName} assigned you "${taskTitle}"`,
     taskId,
@@ -72,7 +73,7 @@ export async function notifyTaskCompleted({
 }) {
   return createAndSendNotification({
     userId: parentId,
-    type: 'TASK_COMPLETED',
+    type: NotificationType.TASK_COMPLETED,
     title: 'Task Completed! 🎉',
     message: `${childName} completed "${taskTitle}" and earned ${pointsEarned} points!`,
     taskId,
@@ -91,7 +92,7 @@ export async function notifyRewardApproved({
 }) {
   return createAndSendNotification({
     userId: childId,
-    type: 'REWARD_APPROVED',
+    type: NotificationType.REWARD_APPROVED,
     title: 'Reward Approved! 🎉',
     message: `${approverName} approved your "${rewardTitle}" reward! Enjoy!`,
   })
@@ -109,7 +110,7 @@ export async function notifyRewardDenied({
 }) {
   return createAndSendNotification({
     userId: childId,
-    type: 'REWARD_DENIED',
+    type: NotificationType.REWARD_DENIED,
     title: 'Reward Not Approved',
     message: `${approverName} did not approve your "${rewardTitle}" reward. Points have been refunded.`,
   })
@@ -129,7 +130,7 @@ export async function notifyReminder({
 }) {
   return createAndSendNotification({
     userId,
-    type: 'REMINDER',
+    type: NotificationType.REMINDER,
     title,
     message,
     taskId,
