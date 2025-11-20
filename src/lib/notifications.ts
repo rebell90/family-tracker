@@ -3,30 +3,7 @@
 // NOW WITH REAL-TIME SSE SUPPORT! 🚀
 
 import { prisma } from './prisma'
-
-// Define notification type
-interface NotificationData {
-  id: string
-  userId: string
-  type: string
-  title: string
-  message: string
-  taskId: string | null
-  read: boolean
-  createdAt: Date
-}
-
-// Note: We'll import this dynamically to avoid circular dependencies
-async function sendSSENotification(userId: string, notification: NotificationData) {
-  try {
-    // Dynamic import to avoid build issues
-    const { sendNotificationToUser } = await import('@/app/api/notifications/stream/route')
-    return sendNotificationToUser(userId, notification)
-  } catch (_error) {
-    // SSE not available or user not connected - that's OK, they'll get it on next poll
-    return false
-  }
-}
+import { sendNotificationToUser, type SSENotification } from './sse-manager'
 
 // Helper to create notification in database AND send via SSE
 async function createAndSendNotification(data: {
@@ -48,7 +25,11 @@ async function createAndSendNotification(data: {
   })
 
   // Send via SSE for instant delivery
-  await sendSSENotification(data.userId, notification)
+  try {
+    sendNotificationToUser(data.userId, notification as SSENotification)
+  } catch (_error) {
+    // SSE not available or user not connected - that's OK, they'll get it on next poll
+  }
 
   return notification
 }
