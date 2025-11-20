@@ -4,13 +4,25 @@
 
 import { prisma } from './prisma'
 
+// Define notification type
+interface NotificationData {
+  id: string
+  userId: string
+  type: string
+  title: string
+  message: string
+  taskId: string | null
+  read: boolean
+  createdAt: Date
+}
+
 // Note: We'll import this dynamically to avoid circular dependencies
-async function sendSSENotification(userId: string, notification: any) {
+async function sendSSENotification(userId: string, notification: NotificationData) {
   try {
     // Dynamic import to avoid build issues
     const { sendNotificationToUser } = await import('@/app/api/notifications/stream/route')
     return sendNotificationToUser(userId, notification)
-  } catch (error) {
+  } catch (_error) {
     // SSE not available or user not connected - that's OK, they'll get it on next poll
     return false
   }
@@ -44,7 +56,6 @@ async function createAndSendNotification(data: {
 // Notify child when task is assigned
 export async function notifyTaskAssigned({
   assignedToId,
-  assignedToName,
   taskTitle,
   taskId,
   assignerName,
