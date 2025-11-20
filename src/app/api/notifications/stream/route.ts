@@ -4,9 +4,20 @@
 import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
+
+// Define notification type
+interface Notification {
+  id: string
+  userId: string
+  type: string
+  title: string
+  message: string
+  taskId: string | null
+  read: boolean
+  createdAt: Date
+}
 
 // Store active connections
 const connections = new Map<string, ReadableStreamDefaultController>()
@@ -36,7 +47,7 @@ export async function GET(request: NextRequest) {
       const heartbeat = setInterval(() => {
         try {
           controller.enqueue(`:heartbeat\n\n`)
-        } catch (error) {
+        } catch (_error) {
           console.log(`❌ Heartbeat failed for user ${userId}, cleaning up`)
           clearInterval(heartbeat)
           connections.delete(userId)
@@ -50,7 +61,7 @@ export async function GET(request: NextRequest) {
         connections.delete(userId)
         try {
           controller.close()
-        } catch (e) {
+        } catch (_e) {
           // Already closed
         }
       })
@@ -68,7 +79,7 @@ export async function GET(request: NextRequest) {
 }
 
 // Helper function to send notification to a specific user
-export function sendNotificationToUser(userId: string, notification: any) {
+export function sendNotificationToUser(userId: string, notification: Notification) {
   const controller = connections.get(userId)
   
   if (controller) {
@@ -92,7 +103,7 @@ export function sendNotificationToUser(userId: string, notification: any) {
 }
 
 // Helper to broadcast to all connected users
-export function broadcastNotification(notification: any) {
+export function broadcastNotification(notification: Notification) {
   let sent = 0
   connections.forEach((controller, userId) => {
     if (sendNotificationToUser(userId, notification)) {
