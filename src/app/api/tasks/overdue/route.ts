@@ -1,14 +1,36 @@
 // src/app/api/tasks/overdue/route.ts
 // UPDATED: Now filters out tasks before their startDate
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(request: NextRequest) {
+interface OverdueTask {
+  id: string
+  title: string
+  description: string | null
+  points: number
+  timePeriod: string | null
+  isRecurring: boolean
+  daysOfWeek: string[]
+  category: string | null
+  familyId: string
+  assignedToId: string | null
+  createdById: string
+  createdAt: Date
+  recurringEndDate: Date | null
+  startDate: Date | null
+  assignedTo: {
+    id: string
+    name: string
+  } | null
+  missedDate: string
+}
+
+export async function GET() {
   try {
     const session = await getServerSession(authOptions)
     
@@ -85,7 +107,7 @@ export async function GET(request: NextRequest) {
       skipMap.get(s.taskId)!.add(dateKey)
     })
 
-    const overdueTasks: any[] = []
+    const overdueTasks: OverdueTask[] = []
     const DAYS_MAP: { [key: string]: number } = {
       SUNDAY: 0,
       MONDAY: 1,
@@ -114,7 +136,7 @@ export async function GET(request: NextRequest) {
         // ✅ CHANGED: Start from taskStartDate, not 30 days ago
         const startCheckDate = new Date(Math.max(taskStartDate.getTime(), today.getTime() - (30 * 24 * 60 * 60 * 1000)))
         
-        let checkDate = new Date(startCheckDate)
+        const checkDate = new Date(startCheckDate)
         
         while (checkDate < today) {
           const dayOfWeek = checkDate.getDay()
