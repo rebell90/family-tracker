@@ -1,194 +1,173 @@
-import { NextResponse } from 'next/server'
+// src/app/api/tasks/overdue/route.ts
+// UPDATED: Now filters out tasks before their startDate
+
+import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
-// Add these type definitions
-type Task = {
-  id: string
-  title: string
-  description?: string | null
-  points: number
-  completedAt?: Date | null
-  timePeriod?: string | null
-  isRecurring: boolean
-  daysOfWeek: string[]
-  category?: string | null
-  assignedToId?: string | null
-  familyId: string
-  isActive: boolean
-  createdAt: Date
-  assignedTo?: {
-    id: string
-    name: string | null
-  } | null
-}
+export const dynamic = 'force-dynamic'
 
-type OverdueTask = Task & {
-  missedDate: string
-  occurrenceDate?: string
-}
-
-const DAYS_MAP: { [key: string]: number } = {
-  SUNDAY: 0,
-  MONDAY: 1,
-  TUESDAY: 2,
-  WEDNESDAY: 3,
-  THURSDAY: 4,
-  FRIDAY: 5,
-  SATURDAY: 6
-}
-
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
+    
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const userId = session.user.id
-
-    // Get user's family
     const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { family: true }
+      where: { id: session.user.id },
+      select: { familyId: true, role: true },
     })
 
     if (!user?.familyId) {
-      return NextResponse.json([])
+      return NextResponse.json({ tasks: [] })
     }
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    // Get all active tasks for the user
+    // Fetch all family tasks
     const tasks = await prisma.task.findMany({
       where: {
         familyId: user.familyId,
-        isActive: true,
-        OR: [
-          { assignedToId: userId },
-          { assignedToId: null }
-        ]
+        assignedToId: session.user.id,
       },
       include: {
         assignedTo: {
-          select: { id: true, name: true }
-        }
-      }
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
     })
 
-    const overdueTasks: OverdueTask[] = []  // FIXED
+    // Get all completions and skips for this user
+    const completions = await prisma.taskCompletion.findMany({
+      where: {
+        userId: session.user.id,
+        taskId: { in: tasks.map(t => t.id) },
+      },
+      select: {
+        taskId: true,
+        completedAt: true,
+      },
+    })
 
-    for (const task of tasks) {
-      if (task.isRecurring) {
-        // For recurring tasks, find all missed occurrences
-        const missedDates = await findMissedOccurrences(task, userId, today)
+    const skips = await prisma.taskSkip.findMany({
+      where: {
+        userId: session.user.id,
+        taskId: { in: tasks.map(t => t.id) },
+      },
+      select: {
+        taskId: true,
+        skippedAt: true,
+      },
+    })
+
+    const completionMap = new Map<string, Set<string>>()
+    completions.forEach(c => {
+      const dateKey = new Date(c.completedAt).toDateString()
+      if (!completionMap.has(c.taskId)) {
+        completionMap.set(c.taskId, new Set())
+      }
+      completionMap.get(c.taskId)!.add(dateKey)
+    })
+
+    const skipMap = new Map<string, Set<string>>()
+    skips.forEach(s => {
+      const dateKey = new Date(s.skippedAt).toDateString()
+      if (!skipMap.has(s.taskId)) {
+        skipMap.set(s.taskId, new Set())
+      }
+      skipMap.get(s.taskId)!.add(dateKey)
+    })
+
+    const overdueTasks: any[] = []
+    const DAYS_MAP: { [key: string]: number } = {
+      SUNDAY: 0,
+      MONDAY: 1,
+      TUESDAY: 2,
+      WEDNESDAY: 3,
+      THURSDAY: 4,
+      FRIDAY: 5,
+      SATURDAY: 6,
+    }
+
+    tasks.forEach(task => {
+      // ✅ NEW: Get task start date
+      const taskStartDate = task.startDate ? new Date(task.startDate) : new Date(task.createdAt)
+      taskStartDate.setHours(0, 0, 0, 0)
+
+      if (task.isRecurring && task.daysOfWeek.length > 0) {
+        // Check recurring end date
+        if (task.recurringEndDate) {
+          const endDate = new Date(task.recurringEndDate)
+          endDate.setHours(23, 59, 59, 999)
+          if (today > endDate) return
+        }
+
+        const daysToCheck = task.daysOfWeek.map(d => DAYS_MAP[d])
         
-        // Create a task entry for each missed date
-        missedDates.forEach(missedDate => {
-          overdueTasks.push({
-            ...task,
-            missedDate: missedDate.toISOString(),
-            occurrenceDate: missedDate.toISOString()
-          })
-        })
-      } else {
-        // For one-time tasks, check if incomplete
-        const wasCompleted = await prisma.taskCompletion.findFirst({
-          where: {
-            taskId: task.id,
-            userId: userId
-          }
-        })
-
-        if (!wasCompleted && !task.completedAt) {
-          // Task is incomplete - consider it overdue if created before today
-          const createdDate = new Date(task.createdAt)
-          createdDate.setHours(0, 0, 0, 0)
+        // ✅ CHANGED: Start from taskStartDate, not 30 days ago
+        const startCheckDate = new Date(Math.max(taskStartDate.getTime(), today.getTime() - (30 * 24 * 60 * 60 * 1000)))
+        
+        let checkDate = new Date(startCheckDate)
+        
+        while (checkDate < today) {
+          const dayOfWeek = checkDate.getDay()
           
-          if (createdDate < today) {
+          if (daysToCheck.includes(dayOfWeek)) {
+            // ✅ NEW: Skip if before task start date
+            if (checkDate >= taskStartDate) {
+              const dateKey = checkDate.toDateString()
+              const isCompleted = completionMap.get(task.id)?.has(dateKey)
+              const isSkipped = skipMap.get(task.id)?.has(dateKey)
+              
+              if (!isCompleted && !isSkipped) {
+                overdueTasks.push({
+                  ...task,
+                  missedDate: checkDate.toISOString(),
+                })
+              }
+            }
+          }
+          
+          checkDate.setDate(checkDate.getDate() + 1)
+        }
+      } else if (!task.isRecurring) {
+        // ✅ NEW: For non-recurring, also check start date
+        const taskDate = new Date(task.createdAt)
+        taskDate.setHours(0, 0, 0, 0)
+        
+        // Only show as overdue if it's before today AND after start date
+        if (taskDate < today && taskDate >= taskStartDate) {
+          const dateKey = taskDate.toDateString()
+          const isCompleted = completionMap.get(task.id)?.has(dateKey)
+          const isSkipped = skipMap.get(task.id)?.has(dateKey)
+          
+          if (!isCompleted && !isSkipped) {
             overdueTasks.push({
               ...task,
-              missedDate: createdDate.toISOString()
+              missedDate: task.createdAt,
             })
           }
         }
       }
-    }
+    })
 
-    return NextResponse.json(overdueTasks)
+    overdueTasks.sort((a, b) => 
+      new Date(b.missedDate).getTime() - new Date(a.missedDate).getTime()
+    )
+
+    return NextResponse.json({ tasks: overdueTasks })
   } catch (error) {
     console.error('Error fetching overdue tasks:', error)
-    return NextResponse.json({ error: 'Failed to fetch overdue tasks' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to fetch overdue tasks' },
+      { status: 500 }
+    )
   }
-}
-
-async function findMissedOccurrences(task: Task, userId: string, today: Date) {  // FIXED
-  const missedDates: Date[] = []
-
-  // Look back up to 30 days for missed occurrences
-  const lookbackDate = new Date(today)
-  lookbackDate.setDate(lookbackDate.getDate() - 30)
-
-  // Get all completions for this task by this user in the lookback period
-  const completions = await prisma.taskCompletion.findMany({
-    where: {
-      taskId: task.id,
-      userId: userId,
-      completedAt: {
-        gte: lookbackDate
-      }
-    }
-  })
-
-  // Also check for skipped dates
-  const skips = await prisma.taskSkip.findMany({
-    where: {
-      taskId: task.id,
-      userId: userId,
-      skippedAt: {
-        gte: lookbackDate
-      }
-    }
-  })
-
-  // Create a Set of dates that were completed or skipped
-  const handledDates = new Set([
-    ...completions.map(c => {
-      const d = new Date(c.completedAt)
-      d.setHours(0, 0, 0, 0)
-      return d.getTime()
-    }),
-    ...skips.map(s => {
-      const d = new Date(s.skippedAt)
-      d.setHours(0, 0, 0, 0)
-      return d.getTime()
-    })
-  ])
-
-  // Check each day in the lookback period
-  const checkDate = new Date(lookbackDate)
-  
-  while (checkDate < today) {
-    const dayOfWeek = checkDate.getDay()
-    const dayName = Object.keys(DAYS_MAP).find(key => DAYS_MAP[key] === dayOfWeek)
-    
-    // Should this task have been done on this day?
-    const shouldBeDone = task.daysOfWeek.length === 0 || 
-                        (dayName && task.daysOfWeek.includes(dayName))
-    
-    if (shouldBeDone) {
-      const checkTime = new Date(checkDate).getTime()
-      
-      // Was it completed or skipped on this day?
-      if (!handledDates.has(checkTime)) {
-        missedDates.push(new Date(checkDate))
-      }
-    }
-    
-    checkDate.setDate(checkDate.getDate() + 1)
-  }
-
-  return missedDates
 }

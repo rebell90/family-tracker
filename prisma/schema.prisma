@@ -106,6 +106,7 @@ model Task {
   completedAt DateTime?
   dueDate     DateTime?
   recurringEndDate DateTime?
+  startDate   DateTime  @default(now()) 
 
   // Relations
   createdBy      User               @relation("TaskCreator", fields: [createdById], references: [id])
