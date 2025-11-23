@@ -174,7 +174,7 @@ export async function GET() {
           if (!isCompleted && !isSkipped) {
             overdueTasks.push({
               ...task,
-              missedDate: task.createdAt,
+              missedDate: task.createdAt.toISOString(),
             })
           }
         }
