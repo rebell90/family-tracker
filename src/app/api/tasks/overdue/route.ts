@@ -21,11 +21,12 @@ interface OverdueTask {
   assignedToId: string | null
   createdById: string
   createdAt: Date
+  updatedAt: Date
   recurringEndDate: Date | null
   startDate: Date | null
   assignedTo: {
     id: string
-    name: string
+    name: string | null
   } | null
   missedDate: string
 }
