@@ -44,7 +44,7 @@ export async function PUT(
     const body = await request.json()
     console.log('Update request body:', body)
 
-    const { title, description, points, category, assignedToId, isRecurring, daysOfWeek, timePeriod, isActive, recurringEndDate } = body
+    const { title, description, points, category, assignedToId, isRecurring, daysOfWeek, timePeriod, isActive, recurringEndDate,startDate } = body
 
     let endDate = null
 if (isRecurring && recurringEndDate) {
@@ -81,7 +81,8 @@ if (isRecurring && recurringEndDate) {
         daysOfWeek: daysOfWeek || [],
         timePeriod: timePeriod || 'ANYTIME',
         isActive: isActive !== undefined ? isActive : true,
-        recurringEndDate: endDate
+        recurringEndDate: endDate,
+        startDate: startDate ? new Date(startDate) : undefined,
       },
       include: {
         assignedTo: {

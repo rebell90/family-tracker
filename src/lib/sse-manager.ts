@@ -1,11 +1,13 @@
 // src/lib/sse-manager.ts
 // SSE connection manager - handles active connections and sending notifications
 
+import { NotificationType } from '@prisma/client'
+
 // Define notification type
 export interface SSENotification {
   id: string
   userId: string
-  type: string
+  type: NotificationType
   title: string
   message: string
   taskId: string | null

@@ -156,6 +156,7 @@ export async function POST(request: NextRequest) {
       assignedToId,
       isRecurring,
       daysOfWeek,
+      startDate,
     } = body
 
     if (!title) {
@@ -177,6 +178,7 @@ export async function POST(request: NextRequest) {
         familyId: user.familyId,
         isRecurring: isRecurring || false,
         daysOfWeek: daysOfWeek || null,
+        startDate: startDate ? new Date(startDate) : new Date(), 
       },
       include: {
         assignedTo: {
