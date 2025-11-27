@@ -24,6 +24,7 @@ interface Task {
   isRecurring: boolean
   daysOfWeek: string[]
   timePeriod?: string
+  startDate: string
   isActive: boolean
   recurringEndDate?: string | null
 }
@@ -69,7 +70,8 @@ export default function TaskManager() {
     daysOfWeek: [] as string[],
     timePeriod: 'ANYTIME',
     hasEndDate: false,
-    recurringEndDate: ''
+    recurringEndDate: '',
+    startDate: new Date().toISOString().split('T')[0],
   })
 
   const user = session?.user as { name?: string; role?: string } | undefined
@@ -204,7 +206,10 @@ export default function TaskManager() {
       daysOfWeek: task.daysOfWeek,
       timePeriod: task.timePeriod || 'ANYTIME',
       hasEndDate: !!task.recurringEndDate,
-      recurringEndDate: task.recurringEndDate ? task.recurringEndDate.split('T')[0] : ''
+      recurringEndDate: task.recurringEndDate ? task.recurringEndDate.split('T')[0] : '',
+      startDate: task.startDate 
+      ? new Date(task.startDate).toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0],
     })
     console.log('Form data set, showing form')
     setShowAddForm(true)
@@ -223,7 +228,8 @@ export default function TaskManager() {
       daysOfWeek: [],
       timePeriod: 'ANYTIME',
       hasEndDate: false,
-      recurringEndDate: ''
+      recurringEndDate: '',
+      startDate: new Date().toISOString().split('T')[0],
     })
     setShowAddForm(false)
     setEditingTask(null)
@@ -469,7 +475,25 @@ export default function TaskManager() {
                   )}
                 </div>
               )}
-
+                {/* Start Date Selection - ADD THE CONDITIONAL HERE */}
+            {formData.isRecurring && (
+              <div>
+                <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-2">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  id="startDate"
+                  value={formData.startDate}
+                  onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  📅 Task will only appear on/after this date
+                </p>
+              </div>
+            )}
               {/* End Date Section - MOBILE RESPONSIVE */}
               {formData.isRecurring && (
                 <div className="space-y-3 pt-3 border-t border-gray-200">
