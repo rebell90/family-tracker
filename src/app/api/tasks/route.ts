@@ -52,9 +52,9 @@ export async function GET(request: NextRequest) {
         },
         completions: {
           where: {
-            userId: session.user.id, // Only get current user's completions
+            userId: session.user.id,
             completedAt: {
-              gte: today, // Only today's completions
+              gte: today,
             },
           },
           include: {
@@ -75,6 +75,29 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    // 🆕 NEW: Filter tasks by start/end dates
+    const validTasks = tasks.filter(task => {
+      // Check if task has started yet
+      if (task.startDate) {
+        const startDate = new Date(task.startDate)
+        startDate.setHours(0, 0, 0, 0)
+        if (today < startDate) {
+          return false  // Task hasn't started yet
+        }
+      }
+
+      // Check if recurring task has ended
+      if (task.isRecurring && task.recurringEndDate) {
+        const endDate = new Date(task.recurringEndDate)
+        endDate.setHours(0, 0, 0, 0)
+        if (today > endDate) {
+          return false  // Recurring task has ended
+        }
+      }
+
+      return true  // Task is active and within date range
+    })
+
     // Fetch today's skips for the current user
     const skips = await prisma.taskSkip.findMany({
       where: {
@@ -90,8 +113,8 @@ export async function GET(request: NextRequest) {
 
     const skippedTaskIds = new Set(skips.map(skip => skip.taskId))
 
-    // Process tasks to add completion AND skip info
-    const processedTasks = tasks.map(task => {
+    // 🆕 CHANGED: Use validTasks instead of tasks
+    const processedTasks = validTasks.map(task => {
       const todayCompletion = task.completions[0]
       const isSkippedToday = skippedTaskIds.has(task.id)
       
@@ -100,7 +123,7 @@ export async function GET(request: NextRequest) {
         completedToday: !!todayCompletion,
         completedAt: todayCompletion?.completedAt || null,
         completedBy: todayCompletion?.user?.name || null,
-        skippedToday: isSkippedToday, // ✅ NOW RETURNS SKIP STATUS!
+        skippedToday: isSkippedToday,
       }
     })
 
