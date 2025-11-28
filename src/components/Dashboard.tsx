@@ -210,6 +210,7 @@ const fetchTasks = async () => {
     }
   }
 
+
   const handleCompleteTask = async (taskId: string, taskTitle: string) => {
     const confirmed = window.confirm(`Complete "${taskTitle}"?\n\nYou'll earn points for completing this task.`)
     
@@ -280,51 +281,6 @@ const fetchTasks = async () => {
     return 'ANYTIME'
   }
 
-const getYesterdaysMissedTasks = () => {
-  const yesterday = new Date()
-  yesterday.setDate(yesterday.getDate() - 1)
-  yesterday.setHours(0, 0, 0, 0)
-  
-  const yesterdayEnd = new Date(yesterday)
-  yesterdayEnd.setHours(23, 59, 59, 999)
-  
-  const dayOfWeek = yesterday.getDay()
-  const dayName = Object.keys(DAYS_MAP)[Object.values(DAYS_MAP).indexOf(dayOfWeek)]
-
-  return tasks.filter(task => {
-    // FILTER 1: Only show incomplete tasks
-    if (task.completedToday || task.completedAt) return false
-    
-    // FILTER 2: Check if task had started by yesterday
-    if (task.startDate) {
-      const startDate = new Date(task.startDate)
-      startDate.setHours(0, 0, 0, 0)
-      if (yesterday < startDate) return false  // Wasn't active yet
-    }
-    
-    // FILTER 3: Check if task hasn't ended yet
-    if (task.isRecurring && task.recurringEndDate) {
-      const endDate = new Date(task.recurringEndDate)
-      endDate.setHours(0, 0, 0, 0)
-      if (yesterday > endDate) return false  // Already ended before yesterday
-    }
-    
-    // FILTER 4: Check if task was scheduled for yesterday
-    if (task.isRecurring) {
-      // Recurring tasks: check if yesterday was one of the scheduled days
-      if (task.daysOfWeek && task.daysOfWeek.length > 0) {
-        return task.daysOfWeek.includes(dayName)
-      }
-      // Recurring task with no specific days means daily
-      return true
-    } else {
-      // Non-recurring tasks: only show if due date was yesterday
-      // (You'll need to add logic here based on how you handle due dates for non-recurring tasks)
-      // For now, let's not show non-recurring tasks in "yesterday's missed"
-      return false
-    }
-  })
-}
 
 const getTasksForToday = () => {
   const today = new Date().getDay()
@@ -391,7 +347,6 @@ const getTasksForToday = () => {
     }
   }
 
-  const yesterdaysMissed = getYesterdaysMissedTasks()
   const todaysTasks = getTasksForToday()
   const tasksByPeriod = groupTasksByTimePeriod(todaysTasks)
   const currentPeriod = getCurrentTimePeriod()
@@ -635,83 +590,28 @@ const getTasksForToday = () => {
           </div>
         </div>
 
-        {/* Overdue Warning Banner - MOBILE RESPONSIVE */}
-        {overdueTasks > yesterdaysMissed.length && (
-          <div className="mb-4 sm:mb-6 bg-red-50 border-2 border-red-200 rounded-xl p-3 sm:p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <div className="flex items-start gap-3 flex-1">
-                <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={24} />
-                <div className="min-w-0">
-                  <h3 className="font-semibold text-red-800 text-sm sm:text-base">
-                    You have {overdueTasks} overdue tasks
-                  </h3>
-                  <p className="text-xs sm:text-sm text-red-600">
-                    Take a moment to catch up or reschedule them
-                  </p>
-                </div>
+        {/* ✅ NEW: Overdue Alert */}
+        {overdueTasks > 0 && (
+          <div className="mb-6 bg-orange-50 border-l-4 border-orange-500 p-4 rounded-lg shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                <span className="text-2xl">📅</span>
               </div>
-              <Link
-                href="/overdue-tasks"
-                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm text-center whitespace-nowrap"
-              >
-                Manage Overdue
-              </Link>
-            </div>
-          </div>
-        )}
-
-        {/* Yesterday's Missed Tasks - MOBILE RESPONSIVE */}
-        {yesterdaysMissed.length > 0 && (
-          <div className="mb-4 sm:mb-6 bg-orange-50 border-2 border-orange-200 rounded-xl p-3 sm:p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 mb-3">
-              <h3 className="text-base sm:text-lg font-semibold text-orange-800">
-                Yesterday&apos;s Incomplete ({yesterdaysMissed.length})
-              </h3>
-              <Link
-                href="/overdue-tasks"
-                className="flex items-center justify-center gap-1 text-xs sm:text-sm text-orange-600 hover:text-orange-700 font-medium transition-colors"
-              >
-                View All Overdue
-                <ExternalLink size={14} />
-              </Link>
-            </div>
-            <div className="space-y-2">
-              {yesterdaysMissed.slice(0, 3).map(task => (
-                <div key={task.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 p-3 bg-white rounded-lg border border-orange-200">
-                  <div className="min-w-0 flex-1">
-                    <h4 className="font-medium text-gray-800 text-sm sm:text-base break-words">{task.title}</h4>
-                    {task.description && <p className="text-xs sm:text-sm text-gray-600 break-words line-clamp-2">{task.description}</p>}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-yellow-100 text-yellow-700 whitespace-nowrap">
-                      {task.points} pts
-                    </span>
-                    <button
-                      onClick={() => handleCompleteTask(task.id, task.title)}
-                      disabled={completingTask === task.id}
-                      className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-2 sm:px-3 py-1 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap"
-                      title="Mark as completed"
-                    >
-                      {completingTask === task.id ? '...' : 'Complete'}
-                    </button>
-                    <button
-                      onClick={() => handleSkipTask(task.id, task.title)}
-                      className="bg-orange-500 hover:bg-orange-600 text-white px-2 sm:px-3 py-1 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap"
-                      title="Skip this task"
-                    >
-                      Skip
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {yesterdaysMissed.length > 3 && (
-                <Link
-                  href="/overdue-tasks"
-                  className="block text-center text-xs sm:text-sm text-orange-600 hover:text-orange-700 font-medium mt-2"
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-orange-800 mb-1">
+                  You have {overdueTasks} overdue task{overdueTasks !== 1 ? 's' : ''}
+                </h3>
+                <p className="text-sm text-orange-700 mb-3">
+                  Tasks from the past week that need attention
+                </p>
+                <button
+                  onClick={() => window.location.href = '/overdue-tasks'}
+                  className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2"
                 >
-                  + {yesterdaysMissed.length - 3} more overdue tasks →
-                </Link>
-              )}
+                  View Overdue Tasks
+                  <span>→</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
