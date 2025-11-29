@@ -66,11 +66,20 @@ export async function GET() {
         },
       },
     })
-
-        // 🔍 ADD THIS DEBUGGING
-    console.log('🔍 OVERDUE DEBUG - Total tasks found:', tasks.length)
-    console.log('🔍 OVERDUE DEBUG - User ID:', session.user.id)
-    console.log('🔍 OVERDUE DEBUG - Today:', today.toISOString())
+console.log('=== OVERDUE API DEBUG ===')
+console.log('Total tasks from DB:', tasks.length)
+console.log('Today:', today.toISOString())
+console.log('\nTasks found:')
+tasks.forEach(task => {
+  console.log({
+    title: task.title,
+    isRecurring: task.isRecurring,
+    daysOfWeek: task.daysOfWeek,
+    startDate: task.startDate?.toISOString(),
+    recurringEndDate: task.recurringEndDate?.toISOString(),
+    createdAt: task.createdAt.toISOString()
+  })
+})
 
     // Get all completions and skips for this user
     const completions = await prisma.taskCompletion.findMany({
@@ -202,7 +211,13 @@ export async function GET() {
       new Date(b.missedDate).getTime() - new Date(a.missedDate).getTime()
     )
 
-     console.log('🔍 OVERDUE DEBUG - Final overdue tasks:', overdueTasks.length)
+console.log('\n=== FINAL RESULT ===')
+console.log('Overdue tasks found:', overdueTasks.length)
+console.log('Overdue tasks:', overdueTasks.map(t => ({
+  title: t.title,
+  missedDate: t.missedDate
+})))
+console.log('===================\n')
 
     return NextResponse.json({ tasks: overdueTasks })
   } catch (error) {
