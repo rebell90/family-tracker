@@ -67,6 +67,11 @@ export async function GET() {
       },
     })
 
+        // 🔍 ADD THIS DEBUGGING
+    console.log('🔍 OVERDUE DEBUG - Total tasks found:', tasks.length)
+    console.log('🔍 OVERDUE DEBUG - User ID:', session.user.id)
+    console.log('🔍 OVERDUE DEBUG - Today:', today.toISOString())
+
     // Get all completions and skips for this user
     const completions = await prisma.taskCompletion.findMany({
       where: {
@@ -196,6 +201,8 @@ export async function GET() {
     overdueTasks.sort((a, b) => 
       new Date(b.missedDate).getTime() - new Date(a.missedDate).getTime()
     )
+
+     console.log('🔍 OVERDUE DEBUG - Final overdue tasks:', overdueTasks.length)
 
     return NextResponse.json({ tasks: overdueTasks })
   } catch (error) {
