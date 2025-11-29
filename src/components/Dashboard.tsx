@@ -212,7 +212,6 @@ const fetchOverdueCount = async () => {
     console.error('Error fetching overdue count:', error)
   }
 }
-}
 
 
   const handleCompleteTask = async (taskId: string, taskTitle: string) => {
