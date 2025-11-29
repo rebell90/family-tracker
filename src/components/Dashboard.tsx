@@ -205,13 +205,13 @@ const fetchOverdueCount = async () => {
     const response = await fetch('/api/tasks/overdue')
     const data = await response.json()
     
-    console.log('🔍 OVERDUE API RESPONSE:', data) // ADD THIS
-    console.log('🔍 Tasks length:', data.tasks?.length || data.length) // ADD THIS
+    console.log('🔍 Overdue API response:', data)  // Keep for debugging
     
-    setOverdueTasks(data.length || 0)
+    setOverdueTasks(data.tasks?.length || 0)
   } catch (error) {
     console.error('Error fetching overdue count:', error)
   }
+}
 }
 
 
