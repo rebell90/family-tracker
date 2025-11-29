@@ -200,15 +200,19 @@ const fetchTasks = async () => {
     }
   }
 
-  const fetchOverdueCount = async () => {
-    try {
-      const response = await fetch('/api/tasks/overdue')
-      const data = await response.json()
-      setOverdueTasks(data.length || 0)
-    } catch (error) {
-      console.error('Error fetching overdue count:', error)
-    }
+const fetchOverdueCount = async () => {
+  try {
+    const response = await fetch('/api/tasks/overdue')
+    const data = await response.json()
+    
+    console.log('🔍 OVERDUE API RESPONSE:', data) // ADD THIS
+    console.log('🔍 Tasks length:', data.tasks?.length || data.length) // ADD THIS
+    
+    setOverdueTasks(data.length || 0)
+  } catch (error) {
+    console.error('Error fetching overdue count:', error)
   }
+}
 
 
   const handleCompleteTask = async (taskId: string, taskTitle: string) => {
