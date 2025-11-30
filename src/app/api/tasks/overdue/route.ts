@@ -1,7 +1,7 @@
 // src/app/api/tasks/overdue/route.ts
 // FIXED: Shows overdue tasks from BEFORE the end date (catch-up feature)
 
-import { NextResponse } from 'next/server'
+import { NextResponse, NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
@@ -31,7 +31,7 @@ interface OverdueTask {
   missedDate: string
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     
@@ -72,7 +72,7 @@ export async function GET() {
     const tasks = await prisma.task.findMany({
       where: {
         familyId: user.familyId,
-        assignedToId: session.user.id,
+        assignedToId: targetUserId, 
       },
       include: {
         assignedTo: {
