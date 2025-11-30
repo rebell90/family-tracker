@@ -2,34 +2,35 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { Star, CheckCircle, Gift, Users, Calendar, Clock, Sunrise, Sun, Sunset, Moon } from 'lucide-react'
-import Link from 'next/link'  
+import { Star, CheckCircle, Gift, Users, Calendar, Clock, Sunrise, Sun, Sunset, Moon, LucideIcon } from 'lucide-react'
+import Link from 'next/link'
 
 interface Child {
   id: string
   name: string
   email: string
+  role?: string
 }
 
 interface Task {
   id: string
   title: string
-  description?: string
+  description?: string | null
   points: number
   completedAt?: Date | string | null
   completedToday?: boolean
   completedBy?: string | null
   skippedToday?: boolean
-  timePeriod?: string
+  timePeriod?: string | null
   isRecurring: boolean
   daysOfWeek: string[]
-  category?: string
+  category?: string | null
   startDate?: string | Date | null
   recurringEndDate?: string | Date | null
   assignedTo?: {
     id: string
-    name: string
-  }
+    name: string | null
+  } | null
 }
 
 interface ChildStats {
@@ -39,7 +40,41 @@ interface ChildStats {
   streak: number
 }
 
-const TIME_PERIODS = {
+interface FamilyMembersResponse {
+  members?: Child[]
+}
+
+interface TasksResponse {
+  tasks?: Task[]
+}
+
+interface UserPointsResponse {
+  currentPoints?: number
+  totalEarned?: number
+  tasksCompletedToday?: number
+  streak?: number
+}
+
+interface OverdueResponse {
+  tasks?: Task[]
+}
+
+interface TimePeriodInfo {
+  label: string
+  icon: LucideIcon
+  subtitle: string
+  color: string
+  bgColor: string
+  borderColor: string
+}
+
+type TimePeriodKey = 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT' | 'ANYTIME'
+
+type TimePeriods = Record<TimePeriodKey, TimePeriodInfo>
+
+type TasksByPeriod = Record<string, Task[]>
+
+const TIME_PERIODS: TimePeriods = {
   MORNING: { label: 'Morning', icon: Sunrise, subtitle: '6 AM - 12 PM', color: 'bg-orange-100 text-orange-600', bgColor: 'bg-orange-50', borderColor: 'border-orange-300' },
   AFTERNOON: { label: 'Afternoon', icon: Sun, subtitle: '12 PM - 5 PM', color: 'bg-yellow-100 text-yellow-600', bgColor: 'bg-yellow-50', borderColor: 'border-yellow-300' },
   EVENING: { label: 'Evening', icon: Sunset, subtitle: '5 PM - 9 PM', color: 'bg-purple-100 text-purple-600', bgColor: 'bg-purple-50', borderColor: 'border-purple-300' },
@@ -47,7 +82,7 @@ const TIME_PERIODS = {
   ANYTIME: { label: 'Anytime', icon: Calendar, subtitle: 'No specific time', color: 'bg-gray-100 text-gray-600', bgColor: 'bg-gray-50', borderColor: 'border-gray-300' },
 }
 
-const DAYS_MAP = {
+const DAYS_MAP: Record<string, number> = {
   SUNDAY: 0,
   MONDAY: 1,
   TUESDAY: 2,
@@ -68,8 +103,8 @@ export default function ParentDashboard() {
     tasksCompletedToday: 0,
     streak: 0
   })
-  const [overdueCount, setOverdueCount] = useState(0)
-  const [loading, setLoading] = useState(true)
+  const [overdueCount, setOverdueCount] = useState<number>(0)
+  const [loading, setLoading] = useState<boolean>(true)
   const [completingTask, setCompletingTask] = useState<string | null>(null)
 
   useEffect(() => {
@@ -84,13 +119,13 @@ export default function ParentDashboard() {
     }
   }, [selectedChildId])
 
-  const fetchChildren = async () => {
+  const fetchChildren = async (): Promise<void> => {
     try {
       const response = await fetch('/api/family/members')
-      const data = await response.json()
+      const data: FamilyMembersResponse = await response.json()
       
       // Filter to only children
-      const childMembers = data.members?.filter((m: any) => m.role === 'CHILD') || []
+      const childMembers = data.members?.filter((m: Child) => m.role === 'CHILD') || []
       setChildren(childMembers)
       
       if (childMembers.length > 0) {
@@ -101,14 +136,14 @@ export default function ParentDashboard() {
     }
   }
 
-  const fetchTasksForChild = async () => {
+  const fetchTasksForChild = async (): Promise<void> => {
     try {
       const endpoint = selectedChildId === 'all' 
         ? '/api/tasks/all-children'
         : `/api/tasks?childId=${selectedChildId}`
       
       const response = await fetch(endpoint)
-      const data = await response.json()
+      const data: TasksResponse = await response.json()
       setTasks(data.tasks || [])
     } catch (error) {
       console.error('Error fetching tasks:', error)
@@ -117,16 +152,16 @@ export default function ParentDashboard() {
     }
   }
 
-  const fetchStatsForChild = async () => {
+  const fetchStatsForChild = async (): Promise<void> => {
     if (selectedChildId === 'all') {
       // Aggregate stats for all children
       try {
-        const statsPromises = children.map(child =>
-          fetch(`/api/user-points?userId=${child.id}`).then(r => r.json())
+        const statsPromises = children.map((child: Child) =>
+          fetch(`/api/user/points?userId=${child.id}`).then(r => r.json())
         )
-        const allStats = await Promise.all(statsPromises)
+        const allStats: UserPointsResponse[] = await Promise.all(statsPromises)
         
-        const aggregated = allStats.reduce((acc, stat) => ({
+        const aggregated = allStats.reduce<ChildStats>((acc, stat) => ({
           currentPoints: acc.currentPoints + (stat.currentPoints || 0),
           totalEarned: acc.totalEarned + (stat.totalEarned || 0),
           tasksCompletedToday: acc.tasksCompletedToday + (stat.tasksCompletedToday || 0),
@@ -140,8 +175,8 @@ export default function ParentDashboard() {
     } else {
       // Fetch stats for specific child
       try {
-        const response = await fetch(`/api/user-points?userId=${selectedChildId}`)
-        const data = await response.json()
+        const response = await fetch(`/api/user/points?userId=${selectedChildId}`)
+        const data: UserPointsResponse = await response.json()
         setStats({
           currentPoints: data.currentPoints || 0,
           totalEarned: data.totalEarned || 0,
@@ -154,14 +189,14 @@ export default function ParentDashboard() {
     }
   }
 
-  const fetchOverdueForChild = async () => {
+  const fetchOverdueForChild = async (): Promise<void> => {
     if (selectedChildId === 'all') {
       // Count overdue for all children
       try {
-        const countPromises = children.map(child =>
+        const countPromises = children.map((child: Child) =>
           fetch(`/api/tasks/overdue?userId=${child.id}`).then(r => r.json())
         )
-        const allOverdue = await Promise.all(countPromises)
+        const allOverdue: OverdueResponse[] = await Promise.all(countPromises)
         const total = allOverdue.reduce((sum, data) => sum + (data.tasks?.length || 0), 0)
         setOverdueCount(total)
       } catch (error) {
@@ -171,7 +206,7 @@ export default function ParentDashboard() {
       // Fetch overdue for specific child
       try {
         const response = await fetch(`/api/tasks/overdue?userId=${selectedChildId}`)
-        const data = await response.json()
+        const data: OverdueResponse = await response.json()
         setOverdueCount(data.tasks?.length || 0)
       } catch (error) {
         console.error('Error fetching overdue count:', error)
@@ -179,7 +214,7 @@ export default function ParentDashboard() {
     }
   }
 
-  const handleCompleteTask = async (taskId: string, taskTitle: string, childName: string) => {
+  const handleCompleteTask = async (taskId: string, taskTitle: string, childName: string): Promise<void> => {
     const confirmed = window.confirm(
       `Complete "${taskTitle}" on behalf of ${childName}?\n\nThis will award points to ${childName}.`
     )
@@ -211,7 +246,7 @@ export default function ParentDashboard() {
     }
   }
 
-  const handleUndoTask = async (taskId: string, taskTitle: string, childName: string) => {
+  const handleUndoTask = async (taskId: string, taskTitle: string, childName: string): Promise<void> => {
     const confirmed = window.confirm(
       `Undo completion of "${taskTitle}" for ${childName}?\n\nThis will remove points from ${childName}.`
     )
@@ -242,11 +277,11 @@ export default function ParentDashboard() {
     }
   }
 
-  const getTasksForToday = () => {
+  const getTasksForToday = (): Task[] => {
     const today = new Date().getDay()
     const dayName = Object.keys(DAYS_MAP)[Object.values(DAYS_MAP).indexOf(today)]
 
-    return tasks.filter(task => {
+    return tasks.filter((task: Task) => {
       if (!task.isRecurring) return true
       if (task.isRecurring && task.daysOfWeek.length > 0) {
         return task.daysOfWeek.includes(dayName)
@@ -255,14 +290,14 @@ export default function ParentDashboard() {
     })
   }
 
-  const tasksByPeriod = getTasksForToday().reduce((acc, task) => {
+  const tasksByPeriod: TasksByPeriod = getTasksForToday().reduce<TasksByPeriod>((acc, task) => {
     const period = task.timePeriod || 'ANYTIME'
     if (!acc[period]) acc[period] = []
     acc[period].push(task)
     return acc
-  }, {} as Record<string, Task[]>)
+  }, {})
 
-  const getCurrentPeriod = () => {
+  const getCurrentPeriod = (): TimePeriodKey => {
     const hour = new Date().getHours()
     if (hour >= 6 && hour < 12) return 'MORNING'
     if (hour >= 12 && hour < 17) return 'AFTERNOON'
@@ -276,7 +311,7 @@ export default function ParentDashboard() {
 
   const selectedChildName = selectedChildId === 'all' 
     ? 'All Children' 
-    : children.find(c => c.id === selectedChildId)?.name || 'Child'
+    : children.find((c: Child) => c.id === selectedChildId)?.name || 'Child'
 
   if (loading) {
     return (
@@ -293,7 +328,7 @@ export default function ParentDashboard() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-800">Parent Dashboard</h1>
-            <p className="text-gray-600 mt-1">Monitor and manage your children's tasks</p>
+            <p className="text-gray-600 mt-1">Monitor and manage your children&apos;s tasks</p>
           </div>
           
           <Link href="/" className="text-blue-600 hover:text-blue-700 underline">
@@ -312,7 +347,7 @@ export default function ParentDashboard() {
             className="w-full sm:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
           >
             <option value="all">All Children</option>
-            {children.map(child => (
+            {children.map((child: Child) => (
               <option key={child.id} value={child.id}>
                 {child.name}
               </option>
@@ -416,9 +451,9 @@ export default function ParentDashboard() {
             </p>
           </div>
 
-          {Object.entries(TIME_PERIODS).map(([periodKey, periodInfo]) => {
+          {(Object.entries(TIME_PERIODS) as [TimePeriodKey, TimePeriodInfo][]).map(([periodKey, periodInfo]) => {
             const periodTasks = tasksByPeriod[periodKey] || []
-            const visibleTasks = periodTasks.filter(t => !t.skippedToday)
+            const visibleTasks = periodTasks.filter((t: Task) => !t.skippedToday)
             const isCurrentPeriod = periodKey === currentPeriod
             const IconComponent = periodInfo.icon
 
@@ -460,7 +495,7 @@ export default function ParentDashboard() {
 
                 {/* Tasks */}
                 <div className="p-4 space-y-3">
-                  {periodTasks.map((task) => {
+                  {periodTasks.map((task: Task) => {
                     const isCompleted = task.completedToday === true || task.completedAt !== null
                     const isSkipped = task.skippedToday === true 
 
