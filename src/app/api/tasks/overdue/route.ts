@@ -39,6 +39,9 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { searchParams } = new URL(request.url)
+    const requestedUserId = searchParams.get('userId')
+
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: { familyId: true, role: true },
@@ -48,8 +51,22 @@ export async function GET() {
       return NextResponse.json({ tasks: [] })
     }
 
+    let targetUserId = session.user.id
+
     const today = new Date()
     today.setHours(0, 0, 0, 0)
+
+    // If parent is requesting another user's overdue tasks
+    if (requestedUserId && user.role === 'PARENT') {
+      const targetUser = await prisma.user.findUnique({
+        where: { id: requestedUserId },
+        select: { familyId: true },
+      })
+      
+      if (targetUser?.familyId === user.familyId) {
+        targetUserId = requestedUserId
+      }
+    }
 
     // Fetch all family tasks
     const tasks = await prisma.task.findMany({

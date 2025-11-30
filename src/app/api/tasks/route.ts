@@ -17,6 +17,8 @@ export async function GET(request: NextRequest) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const { searchParams } = new URL(request.url)
+    const childId = searchParams.get('childId')
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -27,6 +29,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ tasks: [] })
     }
 
+    const targetUserId = childId || session.user.id
+
     // Get today's start time
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -35,6 +39,7 @@ export async function GET(request: NextRequest) {
     const tasks = await prisma.task.findMany({
       where: {
         familyId: user.familyId,
+        assignedToId: targetUserId,
       },
       include: {
         assignedTo: {

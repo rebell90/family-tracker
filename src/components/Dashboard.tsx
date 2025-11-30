@@ -882,6 +882,13 @@ const getTasksForToday = () => {
                 <h3 className="font-medium text-gray-800 text-sm sm:text-base">View Reports</h3>
                 <p className="text-xs sm:text-sm text-gray-600 mt-1">Weekly progress and analytics</p>
               </Link>
+              <Link
+               href="/parent-dashboard"
+               className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+              >
+              <Users size={18} />
+              Parent Dashboard
+              </Link>    
             </div>
           </div>
         )}
