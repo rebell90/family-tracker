@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { Star, CheckCircle, Gift, Users, Calendar, Clock, Sunrise, Sun, Sunset, Moon } from 'lucide-react'
-import Link from 'link'
+import Link from 'next/link'  
 
 interface Child {
   id: string
