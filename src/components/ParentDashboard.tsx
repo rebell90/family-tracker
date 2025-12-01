@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { Star, CheckCircle, Gift, Users, Calendar, Clock, Sunrise, Sun, Sunset, Moon, LucideIcon } from 'lucide-react'
+import { Star, CheckCircle, Gift, Users, Calendar, Clock, Sunrise, Sun, Sunset, Moon, LucideIcon, ListTodo, BarChart3, AlertCircle, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 
 interface Child {
@@ -124,12 +124,11 @@ export default function ParentDashboard() {
       const response = await fetch('/api/family/members')
       const data: FamilyMembersResponse = await response.json()
       
-      // Filter to only children
       const childMembers = data.members?.filter((m: Child) => m.role === 'CHILD') || []
       setChildren(childMembers)
       
       if (childMembers.length > 0) {
-        setSelectedChildId('all') // Default to showing all
+        setSelectedChildId('all')
       }
     } catch (error) {
       console.error('Error fetching children:', error)
@@ -154,7 +153,6 @@ export default function ParentDashboard() {
 
   const fetchStatsForChild = async (): Promise<void> => {
     if (selectedChildId === 'all') {
-      // Aggregate stats for all children
       try {
         const statsPromises = children.map((child: Child) =>
           fetch(`/api/user/points?userId=${child.id}`).then(r => r.json())
@@ -165,7 +163,7 @@ export default function ParentDashboard() {
           currentPoints: acc.currentPoints + (stat.currentPoints || 0),
           totalEarned: acc.totalEarned + (stat.totalEarned || 0),
           tasksCompletedToday: acc.tasksCompletedToday + (stat.tasksCompletedToday || 0),
-          streak: Math.max(acc.streak, stat.streak || 0) // Show highest streak
+          streak: Math.max(acc.streak, stat.streak || 0)
         }), { currentPoints: 0, totalEarned: 0, tasksCompletedToday: 0, streak: 0 })
         
         setStats(aggregated)
@@ -173,7 +171,6 @@ export default function ParentDashboard() {
         console.error('Error fetching aggregate stats:', error)
       }
     } else {
-      // Fetch stats for specific child
       try {
         const response = await fetch(`/api/user/points?userId=${selectedChildId}`)
         const data: UserPointsResponse = await response.json()
@@ -191,7 +188,6 @@ export default function ParentDashboard() {
 
   const fetchOverdueForChild = async (): Promise<void> => {
     if (selectedChildId === 'all') {
-      // Count overdue for all children
       try {
         const countPromises = children.map((child: Child) =>
           fetch(`/api/tasks/overdue?userId=${child.id}`).then(r => r.json())
@@ -203,7 +199,6 @@ export default function ParentDashboard() {
         console.error('Error fetching overdue count:', error)
       }
     } else {
-      // Fetch overdue for specific child
       try {
         const response = await fetch(`/api/tasks/overdue?userId=${selectedChildId}`)
         const data: OverdueResponse = await response.json()
@@ -325,14 +320,71 @@ export default function ParentDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">Parent Dashboard</h1>
-            <p className="text-gray-600 mt-1">Monitor and manage your children&apos;s tasks</p>
-          </div>
-          
-          <Link href="/" className="text-blue-600 hover:text-blue-700 underline">
-            ← Back to Main Dashboard
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-800">Parent Dashboard</h1>
+          <p className="text-gray-600 mt-1">Monitor and manage your family&apos;s tasks</p>
+        </div>
+
+        {/* Top Navigation Buttons */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <Link 
+            href="/task-manager"
+            className="bg-white hover:bg-purple-50 rounded-xl p-6 shadow-sm border border-gray-100 transition-all hover:shadow-md hover:border-purple-300 group"
+          >
+            <div className="flex flex-col items-center text-center gap-3">
+              <div className="bg-purple-100 group-hover:bg-purple-200 p-3 rounded-xl transition-colors">
+                <ListTodo className="text-purple-600" size={32} />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-800">Task Manager</h3>
+                <p className="text-sm text-gray-600 mt-1">Create & edit tasks</p>
+              </div>
+            </div>
+          </Link>
+
+          <Link 
+            href="/rewards"
+            className="bg-white hover:bg-green-50 rounded-xl p-6 shadow-sm border border-gray-100 transition-all hover:shadow-md hover:border-green-300 group"
+          >
+            <div className="flex flex-col items-center text-center gap-3">
+              <div className="bg-green-100 group-hover:bg-green-200 p-3 rounded-xl transition-colors">
+                <Gift className="text-green-600" size={32} />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-800">Rewards</h3>
+                <p className="text-sm text-gray-600 mt-1">Manage rewards</p>
+              </div>
+            </div>
+          </Link>
+
+          <Link 
+            href="/family"
+            className="bg-white hover:bg-blue-50 rounded-xl p-6 shadow-sm border border-gray-100 transition-all hover:shadow-md hover:border-blue-300 group"
+          >
+            <div className="flex flex-col items-center text-center gap-3">
+              <div className="bg-blue-100 group-hover:bg-blue-200 p-3 rounded-xl transition-colors">
+                <Users className="text-blue-600" size={32} />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-800">Family</h3>
+                <p className="text-sm text-gray-600 mt-1">Manage family</p>
+              </div>
+            </div>
+          </Link>
+
+          <Link 
+            href="/habits"
+            className="bg-white hover:bg-orange-50 rounded-xl p-6 shadow-sm border border-gray-100 transition-all hover:shadow-md hover:border-orange-300 group"
+          >
+            <div className="flex flex-col items-center text-center gap-3">
+              <div className="bg-orange-100 group-hover:bg-orange-200 p-3 rounded-xl transition-colors">
+                <TrendingUp className="text-orange-600" size={32} />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-800">Habits</h3>
+                <p className="text-sm text-gray-600 mt-1">Track progress</p>
+              </div>
+            </div>
           </Link>
         </div>
 
@@ -436,7 +488,7 @@ export default function ParentDashboard() {
         )}
 
         {/* Today's Tasks */}
-        <div className="space-y-6">
+        <div className="space-y-6 mb-8">
           <div className="text-center mb-6">
             <h2 className="text-2xl font-bold text-gray-800 mb-2">
               Today&apos;s Schedule - {selectedChildName}
@@ -468,7 +520,6 @@ export default function ParentDashboard() {
                     : 'border-gray-100'
                 }`}
               >
-                {/* Period Header */}
                 <div className={`p-4 rounded-t-xl ${isCurrentPeriod ? periodInfo.bgColor : 'bg-gray-50'}`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -493,7 +544,6 @@ export default function ParentDashboard() {
                   </div>
                 </div>
 
-                {/* Tasks */}
                 <div className="p-4 space-y-3">
                   {periodTasks.map((task: Task) => {
                     const isCompleted = task.completedToday === true || task.completedAt !== null
@@ -605,6 +655,57 @@ export default function ParentDashboard() {
               </p>
             </div>
           )}
+        </div>
+
+        {/* Bottom Quick Links */}
+        <div className="border-t border-gray-200 pt-8 mt-8">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Quick Links</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Link 
+              href="/overdue-tasks"
+              className="bg-white hover:bg-red-50 rounded-xl p-6 shadow-sm border border-gray-100 transition-all hover:shadow-md hover:border-red-300 group"
+            >
+              <div className="flex items-start gap-4">
+                <div className="bg-red-100 group-hover:bg-red-200 p-3 rounded-xl transition-colors">
+                  <AlertCircle className="text-red-600" size={24} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-800 mb-1">Overdue Tasks</h3>
+                  <p className="text-sm text-gray-600">Review and complete past tasks</p>
+                </div>
+              </div>
+            </Link>
+
+            <Link 
+              href="/weekly-report"
+              className="bg-white hover:bg-indigo-50 rounded-xl p-6 shadow-sm border border-gray-100 transition-all hover:shadow-md hover:border-indigo-300 group"
+            >
+              <div className="flex items-start gap-4">
+                <div className="bg-indigo-100 group-hover:bg-indigo-200 p-3 rounded-xl transition-colors">
+                  <BarChart3 className="text-indigo-600" size={24} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-800 mb-1">Weekly Report</h3>
+                  <p className="text-sm text-gray-600">View analytics and progress</p>
+                </div>
+              </div>
+            </Link>
+
+            <Link 
+              href="/habits"
+              className="bg-white hover:bg-teal-50 rounded-xl p-6 shadow-sm border border-gray-100 transition-all hover:shadow-md hover:border-teal-300 group"
+            >
+              <div className="flex items-start gap-4">
+                <div className="bg-teal-100 group-hover:bg-teal-200 p-3 rounded-xl transition-colors">
+                  <TrendingUp className="text-teal-600" size={24} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-800 mb-1">Habit Tracker</h3>
+                  <p className="text-sm text-gray-600">Track long-term goals</p>
+                </div>
+              </div>
+            </Link>
+          </div>
         </div>
       </div>
     </div>
