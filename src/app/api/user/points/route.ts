@@ -102,7 +102,7 @@ async function calculateStreak(userId: string): Promise<number> {
     if (completions.length === 0) return 0
 
     let streak = 0
-    const currentDate = new Date()
+    let currentDate = new Date()
     currentDate.setHours(0, 0, 0, 0)
 
     // Check if there's a completion today

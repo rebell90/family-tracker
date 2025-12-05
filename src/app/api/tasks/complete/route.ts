@@ -1,16 +1,12 @@
 // src/app/api/tasks/complete/route.ts
-// Updated to accept optional completedAt for backdating overdue task completions
-// AND automatically notify parents when tasks are completed
+// CRITICAL FIX: Allow parents to complete tasks on behalf of children
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { notifyTaskCompleted } from '@/lib/notifications'
 
-export const dynamic = 'force-dynamic'
-
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     
@@ -18,127 +14,110 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = await request.json()
-    const { taskId, completedAt } = body // ✅ NOW ACCEPTS completedAt!
+    const { taskId } = await request.json()
 
-    if (!taskId) {
-      return NextResponse.json(
-        { error: 'Task ID is required' },
-        { status: 400 }
-      )
-    }
-
-    // Fetch the task with relations
+    // Get the task with assigned user info
     const task = await prisma.task.findUnique({
       where: { id: taskId },
       include: {
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
+        assignedTo: {
+          select: { id: true, familyId: true, name: true }
+        }
+      }
     })
 
     if (!task) {
-      return NextResponse.json(
-        { error: 'Task not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
 
-    // Verify task is assigned to this user
-    if (task.assignedToId !== session.user.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized to complete this task' },
-        { status: 403 }
-      )
+    // Get current user info
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { familyId: true, role: true, name: true }
+    })
+
+    // 🆕 NEW: Check if parent is completing for child
+    const isParentCompletingForChild = 
+      currentUser?.role === 'PARENT' && 
+      task.assignedTo?.familyId === currentUser.familyId
+
+    // Check if user is the assigned user
+    const isAssignedUser = session.user.id === task.assignedToId
+
+    // Allow if either:
+    // 1. User is the assigned user (child completing their own task)
+    // 2. User is parent in same family (parent completing for child)
+    if (!isAssignedUser && !isParentCompletingForChild) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Use provided completedAt or current time
-    const completionDate = completedAt ? new Date(completedAt) : new Date()
-    
-    // Check if already completed on this specific date
-    const startOfDay = new Date(completionDate)
-    startOfDay.setHours(0, 0, 0, 0)
-    const endOfDay = new Date(completionDate)
-    endOfDay.setHours(23, 59, 59, 999)
+    // Check if already completed today
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
 
     const existingCompletion = await prisma.taskCompletion.findFirst({
       where: {
-        taskId,
-        userId: session.user.id,
+        taskId: task.id,
+        userId: task.assignedToId, // Check for assigned user's completion
         completedAt: {
-          gte: startOfDay,
-          lte: endOfDay,
-        },
-      },
+          gte: today,
+          lt: tomorrow
+        }
+      }
     })
 
     if (existingCompletion) {
-      return NextResponse.json(
-        { error: 'Task already completed for this date' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Task already completed today' }, { status: 400 })
     }
 
-    // Get user info for notification
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { name: true },
-    })
-
-    // Create task completion with specified or current date
+    // Create completion record
+    // IMPORTANT: Award to the CHILD (assignedToId), not the parent
     const completion = await prisma.taskCompletion.create({
       data: {
-        taskId,
-        userId: session.user.id,
-        completedAt: completionDate, // ✅ Use the provided date!
+        taskId: task.id,
+        userId: task.assignedToId, // Award to child
+        completedAt: new Date(),
       },
     })
 
-    // Award points to user
+    // Award points to the CHILD
     await prisma.userPoints.upsert({
-      where: { userId: session.user.id },
+      where: { userId: task.assignedToId },
       update: {
         currentPoints: { increment: task.points },
         totalEarned: { increment: task.points },
       },
       create: {
-        userId: session.user.id,
+        userId: task.assignedToId,
         currentPoints: task.points,
         totalEarned: task.points,
       },
     })
 
-    // 🔔 Notify the parent who created the task
-    if (task.createdBy) {
-      try {
-        await notifyTaskCompleted({
-          parentId: task.createdBy.id,
-          childName: user?.name || 'Someone',
-          taskTitle: task.title,
-          taskId: task.id,
-          pointsEarned: task.points,
-        })
-        console.log(`✅ Parent notified of task completion: ${task.title}`)
-      } catch (notifError) {
-        // Don't fail the whole request if notification fails
-        console.error('Failed to send completion notification:', notifError)
-      }
+    // 🆕 NEW: Create notification for the child
+    if (isParentCompletingForChild && task.assignedToId) {
+      await prisma.notification.create({
+        data: {
+          userId: task.assignedToId,
+          type: 'TASK_COMPLETED',
+          title: 'Task Completed!',
+          message: `${currentUser.name} completed "${task.title}" for you! You earned ${task.points} points.`,
+        },
+      })
     }
 
-    return NextResponse.json({
+    return NextResponse.json({ 
+      success: true, 
       completion,
-      pointsEarned: task.points,
-      message: 'Task completed successfully!',
+      message: isParentCompletingForChild 
+        ? `Task completed on behalf of ${task.assignedTo?.name}` 
+        : 'Task completed successfully'
     })
+
   } catch (error) {
     console.error('Error completing task:', error)
-    return NextResponse.json(
-      { error: 'Failed to complete task' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to complete task' }, { status: 500 })
   }
 }

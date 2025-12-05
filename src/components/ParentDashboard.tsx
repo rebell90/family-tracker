@@ -140,7 +140,11 @@ export default function ParentDashboard() {
       const childMembers = data.members?.filter((m: Child) => m.role === 'CHILD') || []
       setChildren(childMembers)
       
-      if (childMembers.length > 0) {
+      // If only one child, select that child by default
+      // If multiple children, default to "all"
+      if (childMembers.length === 1) {
+        setSelectedChildId(childMembers[0].id)
+      } else if (childMembers.length > 1) {
         setSelectedChildId('all')
       }
     } catch (error) {
@@ -485,9 +489,9 @@ export default function ParentDashboard() {
           <select
             value={selectedChildId}
             onChange={(e) => setSelectedChildId(e.target.value)}
-            className="w-full sm:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            className="w-full sm:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-800 font-medium"
           >
-            <option value="all">All Children</option>
+            {children.length > 1 && <option value="all">All Children</option>}
             {children.map((child: Child) => (
               <option key={child.id} value={child.id}>
                 {child.name}
