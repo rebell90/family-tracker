@@ -30,6 +30,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
 
+    // Verify task has an assigned user
+    if (!task.assignedToId) {
+      return NextResponse.json({ error: 'Task has no assigned user' }, { status: 400 })
+    }
+
     // Get current user info
     const currentUser = await prisma.user.findUnique({
       where: { id: session.user.id },
