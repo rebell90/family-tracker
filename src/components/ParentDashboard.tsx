@@ -469,7 +469,7 @@ export default function ParentDashboard() {
               Hi {session?.user?.name || 'there'}! 👋
             </h1>
             <p className="text-gray-600 mt-1 text-sm sm:text-base">
-              Parent Dashboard - Monitor your family's progress
+              Parent Dashboard - Monitor your family&apos;s progress
             </p>
           </div>
           
@@ -662,7 +662,7 @@ export default function ParentDashboard() {
         <div className="space-y-6">
           <div className="text-center mb-6">
             <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">
-              {"Today's Schedule - "}{selectedChildName}
+              "Today&apos;s Schedule - {selectedChildName}
             </h2>
             <p className="text-sm sm:text-base text-gray-600">
               {new Date().toLocaleDateString('en-US', { 
@@ -823,7 +823,7 @@ export default function ParentDashboard() {
                 No tasks for {selectedChildName} today!
               </h3>
               <p className="text-sm sm:text-base text-gray-600">
-                {"They're all set or it's a free day!"}
+                They&apos;re all set or it&apos;s a free day!
               </p>
             </div>
           )}
