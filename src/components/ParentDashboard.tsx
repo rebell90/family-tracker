@@ -481,7 +481,7 @@ export default function ParentDashboard() {
               Hi {session?.user?.name || 'there'}! 👋
             </h1>
             <p className="text-gray-600 mt-1 text-sm sm:text-base">
-              Parent Dashboard - Monitor your family's progress
+              Parent Dashboard - Monitor your family&apos;s progress
             </p>
           </div>
           
