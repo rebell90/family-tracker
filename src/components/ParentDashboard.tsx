@@ -8,6 +8,7 @@ import FamilyManager from './FamilyManager'
 import RewardManager from './RewardManager'
 import HabitManager from './HabitManager'
 import ParentWeeklyView from './ParentWeeklyView'
+import ManageCompletions from './ManageCompletions'
 
 interface Child {
   id: string
@@ -105,6 +106,7 @@ export default function ParentDashboard() {
   const [showRewardManager, setShowRewardManager] = useState(false)
   const [showHabitManager, setShowHabitManager] = useState(false)
   const [showWeeklyView, setShowWeeklyView] = useState(false)
+  const [showManageCompletions, setShowManageCompletions] = useState(false)
   
   // Data state
   const [children, setChildren] = useState<Child[]>([])
@@ -134,7 +136,7 @@ export default function ParentDashboard() {
 
   const fetchChildren = async (): Promise<void> => {
     try {
-      const response = await fetch('/api/family')
+      const response = await fetch('/api/family')  // ✅ FIXED: Changed from /api/family/members
       const data: FamilyMembersResponse = await response.json()
       
       const childMembers = data.members?.filter((m: Child) => m.role === 'CHILD') || []
@@ -243,9 +245,12 @@ export default function ParentDashboard() {
       })
 
       if (response.ok) {
-        await fetchTasksForChild()
-        await fetchStatsForChild()
-        await fetchOverdueForChild()
+        // Refresh all data
+        await Promise.all([
+          fetchTasksForChild(),
+          fetchStatsForChild(),
+          fetchOverdueForChild()
+        ])
       } else {
         const data = await response.json()
         alert(data.error || 'Failed to complete task')
@@ -425,6 +430,26 @@ export default function ParentDashboard() {
     )
   }
 
+  // Manage Completions View
+  if (showManageCompletions) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-3xl font-bold text-gray-800">Manage Completions</h1>
+            <button
+              onClick={() => setShowManageCompletions(false)}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              Back to Dashboard
+            </button>
+          </div>
+          <ManageCompletions />
+        </div>
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6 flex items-center justify-center">
@@ -444,7 +469,7 @@ export default function ParentDashboard() {
               Hi {session?.user?.name || 'there'}! 👋
             </h1>
             <p className="text-gray-600 mt-1 text-sm sm:text-base">
-              Parent Dashboard - Monitor your family&apos;s progress
+              Parent Dashboard - Monitor your family's progress
             </p>
           </div>
           
@@ -569,12 +594,17 @@ export default function ParentDashboard() {
                 <p className="text-sm text-orange-700 mb-3">
                   Tasks from the past week that need attention
                 </p>
-                <a
-                  href={`/overdue-tasks${selectedChildId !== 'all' ? `?childId=${selectedChildId}` : ''}`}
+                <button
+                  onClick={() => {
+                    const url = selectedChildId !== 'all' 
+                      ? `/overdue-tasks?userId=${selectedChildId}`
+                      : '/overdue-tasks'
+                    window.location.href = url
+                  }}
                   className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2"
                 >
                   View Overdue Tasks →
-                </a>
+                </button>
               </div>
             </div>
           </div>
@@ -583,16 +613,16 @@ export default function ParentDashboard() {
         {/* Quick Action Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <button
-            onClick={() => window.location.href = '/overdue-tasks'}
-            className="bg-white hover:bg-red-50 rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100 transition-all hover:shadow-md hover:border-red-300 text-left group"
+            onClick={() => setShowManageCompletions(true)}
+            className="bg-white hover:bg-purple-50 rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100 transition-all hover:shadow-md hover:border-purple-300 text-left group"
           >
             <div className="flex items-start gap-4">
-              <div className="bg-red-100 group-hover:bg-red-200 p-3 rounded-xl transition-colors">
-                <AlertCircle className="text-red-600" size={20} />
+              <div className="bg-purple-100 group-hover:bg-purple-200 p-3 rounded-xl transition-colors">
+                <CheckCircle className="text-purple-600" size={20} />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-800 mb-1 text-sm sm:text-base">Overdue Tasks</h3>
-                <p className="text-xs sm:text-sm text-gray-600">Review past tasks</p>
+                <h3 className="font-semibold text-gray-800 mb-1 text-sm sm:text-base">Manage Completions</h3>
+                <p className="text-xs sm:text-sm text-gray-600">View task history</p>
               </div>
             </div>
           </button>
@@ -632,7 +662,7 @@ export default function ParentDashboard() {
         <div className="space-y-6">
           <div className="text-center mb-6">
             <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">
-              Today&apos;s Schedule - {selectedChildName}
+              {"Today's Schedule - "}{selectedChildName}
             </h2>
             <p className="text-sm sm:text-base text-gray-600">
               {new Date().toLocaleDateString('en-US', { 
@@ -793,7 +823,7 @@ export default function ParentDashboard() {
                 No tasks for {selectedChildName} today!
               </h3>
               <p className="text-sm sm:text-base text-gray-600">
-                They&apos;re all set or it&apos;s a free day!
+                {"They're all set or it's a free day!"}
               </p>
             </div>
           )}
