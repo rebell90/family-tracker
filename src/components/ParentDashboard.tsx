@@ -160,8 +160,11 @@ export default function ParentDashboard() {
         ? '/api/tasks/all-children'
         : `/api/tasks?childId=${selectedChildId}`
       
+      console.log('📡 Fetching tasks from:', endpoint)
       const response = await fetch(endpoint)
       const data: TasksResponse = await response.json()
+      console.log('📦 Tasks data received:', data)
+      console.log('📝 Number of tasks:', data.tasks?.length || 0)
       setTasks(data.tasks || [])
     } catch (error) {
       console.error('Error fetching tasks:', error)
@@ -238,25 +241,34 @@ export default function ParentDashboard() {
     setCompletingTask(taskId)
     
     try {
+      console.log('🔄 Starting task completion...', { taskId, taskTitle, childName })
+      
       const response = await fetch('/api/tasks/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskId })
       })
 
+      const data = await response.json()
+      console.log('📥 API Response:', { ok: response.ok, status: response.status, data })
+
       if (response.ok) {
+        console.log('✅ Task completed successfully, refreshing data...')
+        
         // Refresh all data
         await Promise.all([
-          fetchTasksForChild(),
-          fetchStatsForChild(),
-          fetchOverdueForChild()
+          fetchTasksForChild().then(() => console.log('  ✓ Tasks refreshed')),
+          fetchStatsForChild().then(() => console.log('  ✓ Stats refreshed')),
+          fetchOverdueForChild().then(() => console.log('  ✓ Overdue refreshed'))
         ])
+        
+        console.log('🎉 All data refreshed!')
       } else {
-        const data = await response.json()
+        console.error('❌ Task completion failed:', data.error)
         alert(data.error || 'Failed to complete task')
       }
     } catch (error) {
-      console.error('Error completing task:', error)
+      console.error('💥 Error completing task:', error)
       alert('Failed to complete task')
     } finally {
       setCompletingTask(null)
