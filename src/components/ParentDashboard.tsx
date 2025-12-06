@@ -662,7 +662,7 @@ export default function ParentDashboard() {
         <div className="space-y-6">
           <div className="text-center mb-6">
             <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">
-              "Today&apos;s Schedule - {selectedChildName}
+              Today&apos;s Schedule - {selectedChildName}
             </h2>
             <p className="text-sm sm:text-base text-gray-600">
               {new Date().toLocaleDateString('en-US', { 
