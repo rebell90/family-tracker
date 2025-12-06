@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
+import { useSearchParams } from 'next/navigation'  // ✅ ADDED
 import { AlertTriangle, CheckCircle, X, Calendar, Clock, ChevronDown, ChevronUp, ArrowLeft, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -32,6 +33,9 @@ interface GroupedTasks {
 
 export default function OverdueTasks() {
   const { data: session } = useSession()
+  const searchParams = useSearchParams()  // ✅ ADDED
+  const userId = searchParams.get('userId')  // ✅ ADDED - Get userId from URL
+  
   const [overdueTasks, setOverdueTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [processingTask, setProcessingTask] = useState<string | null>(null)
@@ -42,14 +46,22 @@ export default function OverdueTasks() {
 
   useEffect(() => {
     fetchOverdueTasks()
-  }, [])
+  }, [userId])  // ✅ CHANGED: Re-fetch when userId changes
 
   const fetchOverdueTasks = async () => {
     try {
-      const response = await fetch('/api/tasks/overdue')
+      // ✅ ADDED: Pass userId to API if provided
+      const endpoint = userId 
+        ? `/api/tasks/overdue?userId=${userId}`
+        : '/api/tasks/overdue'
+      
+      console.log('🔍 Fetching overdue tasks from:', endpoint)  // ✅ ADDED DEBUG
+      
+      const response = await fetch(endpoint)
       const result = await response.json()
       
-      console.log('Overdue API Response:', result)
+      console.log('📦 Overdue API Response:', result)
+      console.log('📝 Number of overdue tasks:', result.tasks?.length || 0)  // ✅ ADDED DEBUG
       
       const data: Task[] = Array.isArray(result) ? result : (result.tasks || [])
       
@@ -73,10 +85,12 @@ export default function OverdueTasks() {
         return taskDate < today
       })
       
+      console.log('✅ Filtered overdue tasks:', filtered.length)  // ✅ ADDED DEBUG
+      
       setOverdueTasks(filtered)
       setLoading(false)
     } catch (error) {
-      console.error('Error fetching overdue tasks:', error)
+      console.error('❌ Error fetching overdue tasks:', error)
       setLoading(false)
     }
   }
