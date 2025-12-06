@@ -134,7 +134,7 @@ export default function ParentDashboard() {
 
   const fetchChildren = async (): Promise<void> => {
     try {
-      const response = await fetch('/api/family/members')
+      const response = await fetch('/api/family')
       const data: FamilyMembersResponse = await response.json()
       
       const childMembers = data.members?.filter((m: Child) => m.role === 'CHILD') || []
