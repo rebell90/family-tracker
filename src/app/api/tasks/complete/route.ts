@@ -1,5 +1,6 @@
 // src/app/api/tasks/complete/route.ts
 // CRITICAL FIX: Allow parents to complete tasks on behalf of children
+// CRITICAL FIX: Respect completedAt parameter for overdue tasks
 
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -14,9 +15,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { taskId } = await request.json()
+    const { taskId, completedAt } = await request.json()  // ✅ ADDED completedAt
     
-    console.log('🔄 Task completion request:', { taskId, userId: session.user.id })
+    console.log('🔄 Task completion request:', { taskId, completedAt, userId: session.user.id })
 
     // Get the task with assigned user info
     const task = await prisma.task.findUnique({
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
       role: currentUser?.role 
     })
 
-    // 🆕 NEW: Check if parent is completing for child
+    // Check if parent is completing for child
     const isParentCompletingForChild = 
       currentUser?.role === 'PARENT' && 
       task.assignedTo?.familyId === currentUser.familyId
@@ -74,37 +75,45 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check if already completed today
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
+    // Use assignedToId if exists, otherwise use session user
+    const targetUserId = task.assignedToId || session.user.id
+
+    // ✅ FIXED: Use the completedAt date if provided (for overdue tasks)
+    // Otherwise use current time (for completing tasks today)
+    const completionDate = completedAt ? new Date(completedAt) : new Date()
+    
+    console.log('📅 Completion date:', completionDate.toISOString())
+
+    // ✅ FIXED: Check if already completed on THIS SPECIFIC DATE
+    const checkDate = new Date(completionDate)
+    checkDate.setHours(0, 0, 0, 0)
+    const nextDay = new Date(checkDate)
+    nextDay.setDate(nextDay.getDate() + 1)
 
     const existingCompletion = await prisma.taskCompletion.findFirst({
       where: {
         taskId: task.id,
-        userId: task.assignedToId || session.user.id, // Use session user if no assignedTo
+        userId: targetUserId,
         completedAt: {
-          gte: today,
-          lt: tomorrow
+          gte: checkDate,
+          lt: nextDay
         }
       }
     })
 
     if (existingCompletion) {
-      return NextResponse.json({ error: 'Task already completed today' }, { status: 400 })
+      console.log('⚠️ Task already completed on this date:', checkDate.toDateString())
+      return NextResponse.json({ 
+        error: `Task already completed on ${checkDate.toLocaleDateString()}` 
+      }, { status: 400 })
     }
 
-    // Use assignedToId if exists, otherwise use session user
-    const targetUserId = task.assignedToId || session.user.id
-
-    // Create completion record
-    // IMPORTANT: Award to the CHILD (assignedToId), not the parent
+    // Create completion record with the CORRECT date
     const completion = await prisma.taskCompletion.create({
       data: {
         taskId: task.id,
-        userId: targetUserId, // Award to child (or session user if no assignedTo)
-        completedAt: new Date(),
+        userId: targetUserId,
+        completedAt: completionDate,  // ✅ FIXED: Use provided date or current time
       },
     })
 
@@ -122,7 +131,7 @@ export async function POST(request: Request) {
       },
     })
 
-    // 🆕 NEW: Create notification for the child
+    // Create notification for the child
     if (isParentCompletingForChild && targetUserId) {
       await prisma.notification.create({
         data: {
@@ -137,6 +146,7 @@ export async function POST(request: Request) {
     console.log('✅ Task completed successfully:', { 
       taskId: task.id, 
       userId: targetUserId,
+      completedAt: completionDate.toISOString(),
       points: task.points 
     })
 
