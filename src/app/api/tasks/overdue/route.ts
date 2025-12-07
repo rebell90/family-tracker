@@ -1,5 +1,6 @@
 // src/app/api/tasks/overdue/route.ts
 // FIXED: Shows overdue tasks from BEFORE the end date (catch-up feature)
+// FIXED: Uses targetUserId for completions and skips
 
 import { NextResponse, NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -86,6 +87,7 @@ export async function GET(request: NextRequest) {
 console.log('=== OVERDUE API DEBUG ===')
 console.log('Total tasks from DB:', tasks.length)
 console.log('Today:', today.toISOString())
+console.log('targetUserId:', targetUserId)
 console.log('\nTasks found:')
 tasks.forEach(task => {
   console.log({
@@ -98,10 +100,10 @@ tasks.forEach(task => {
   })
 })
 
-    // Get all completions and skips for this user
+    // ✅ FIXED: Get completions and skips for TARGET USER (child), not parent!
     const completions = await prisma.taskCompletion.findMany({
       where: {
-        userId: session.user.id,
+        userId: targetUserId,  // ✅ FIXED: Was session.user.id
         taskId: { in: tasks.map(t => t.id) },
       },
       select: {
@@ -112,7 +114,7 @@ tasks.forEach(task => {
 
     const skips = await prisma.taskSkip.findMany({
       where: {
-        userId: session.user.id,
+        userId: targetUserId,  // ✅ FIXED: Was session.user.id
         taskId: { in: tasks.map(t => t.id) },
       },
       select: {
