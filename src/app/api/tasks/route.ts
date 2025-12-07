@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
         },
         completions: {
           where: {
-            userId: session.user.id,
+            userId: targetUserId,  // ✅ FIXED: Check child's completions, not parent's
             completedAt: {
               gte: today,
             },
@@ -103,10 +103,10 @@ export async function GET(request: NextRequest) {
       return true  // Task is active and within date range
     })
 
-    // Fetch today's skips for the current user
+    // Fetch today's skips for the target user (child)
     const skips = await prisma.taskSkip.findMany({
       where: {
-        userId: session.user.id,
+        userId: targetUserId,  // ✅ FIXED: Check child's skips, not parent's
         skippedAt: {
           gte: today,
         },
