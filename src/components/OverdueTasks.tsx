@@ -13,6 +13,7 @@ interface Task {
   points: number
   completedAt?: Date | string | null
   completedToday?: boolean
+  skippedToday?: boolean  // ✅ ADDED
   timePeriod?: string
   isRecurring: boolean
   daysOfWeek: string[]
