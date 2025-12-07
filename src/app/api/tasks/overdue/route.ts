@@ -29,8 +29,9 @@ interface OverdueTask {
     name: string | null
   } | null
   missedDate: string
-  completedToday?: boolean  // ✅ ADDED
-  completedAt?: Date | null  // ✅ ADDED
+  completedToday?: boolean
+  completedAt?: Date | null
+  skippedToday?: boolean  // ✅ ADDED
 }
 
 export async function GET(request: NextRequest) {
