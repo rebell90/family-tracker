@@ -69,9 +69,9 @@ export default function OverdueTasks() {
       today.setHours(0, 0, 0, 0)
       
       const filtered = data.filter(task => {
-        // Filter out completed tasks
-        if (task.completedToday || task.completedAt) {
-          console.log('Skipping completed task:', task.title)
+        // Filter out completed OR skipped tasks
+        if (task.completedToday || task.completedAt || task.skippedToday) {
+          console.log('Skipping completed/skipped task:', task.title)
           return false
         }
         

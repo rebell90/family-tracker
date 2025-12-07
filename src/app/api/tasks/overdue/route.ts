@@ -188,15 +188,17 @@ export async function GET(request: NextRequest) {
               const isCompleted = completionMap.get(task.id)?.has(dateKey)
               const isSkipped = skipMap.get(task.id)?.has(dateKey)
               
-              // ✅ CHANGED: Always add task, with completion status
+              // Return ALL tasks with their completion status
+              // Frontend will filter out completed ones
               const completionKey = `${task.id}-${dateKey}`
               const completedAt = completionDateMap.get(completionKey)
               
               overdueTasks.push({
                 ...task,
                 missedDate: checkDate.toISOString(),
-                completedToday: !!isCompleted,  // ✅ ADDED
-                completedAt: completedAt || null,  // ✅ ADDED
+                completedToday: !!isCompleted,  // True if completed on this specific date
+                completedAt: completedAt || null,
+                skippedToday: !!isSkipped,  // ✅ ADDED: True if skipped on this date
               })
             }
           }
@@ -211,6 +213,7 @@ export async function GET(request: NextRequest) {
         if (taskDate < today && taskDate >= taskStartDate) {
           const dateKey = taskDate.toDateString()
           const isCompleted = completionMap.get(task.id)?.has(dateKey)
+          const isSkipped = skipMap.get(task.id)?.has(dateKey)  // ✅ ADDED
           
           // ✅ CHANGED: Always add task, with completion status
           const completionKey = `${task.id}-${dateKey}`
@@ -221,6 +224,7 @@ export async function GET(request: NextRequest) {
             missedDate: task.createdAt.toISOString(),
             completedToday: !!isCompleted,  // ✅ ADDED
             completedAt: completedAt || null,  // ✅ ADDED
+            skippedToday: !!isSkipped,  // ✅ ADDED
           })
         }
       }
