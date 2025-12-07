@@ -15,31 +15,65 @@ export async function POST(request: NextRequest) {
 
     // Get the task to verify it exists
     const task = await prisma.task.findUnique({
-      where: { id: taskId }
+      where: { id: taskId },
+      select: {
+        id: true,
+        points: true,
+        assignedToId: true,  // ✅ ADDED: Get who the task is assigned to
+        assignedTo: {
+          select: {
+            familyId: true,
+            name: true
+          }
+        }
+      }
     })
 
     if (!task) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
 
-    // Get the user
+    // Get the current user
     const user = await prisma.user.findUnique({
       where: { id: (session.user as { id: string }).id },
-      include: { userPoints: true }
+      select: { 
+        id: true, 
+        familyId: true, 
+        role: true,
+        userPoints: true 
+      }
     })
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Find today's completion
+    // ✅ NEW: Check if parent is undoing for child
+    const isParentUndoingForChild = 
+      user.role === 'PARENT' && 
+      task.assignedTo?.familyId === user.familyId
+
+    // Check if user is the assigned user
+    const isAssignedUser = user.id === task.assignedToId
+
+    // Allow if either:
+    // 1. User is the assigned user (child undoing their own task)
+    // 2. User is parent in same family (parent undoing for child)
+    if (!isAssignedUser && !isParentUndoingForChild) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // ✅ CHANGED: Use task's assignedToId if it exists, otherwise use session user
+    const targetUserId = task.assignedToId || user.id
+
+    // Find today's completion for the ASSIGNED USER (not the parent!)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
     const completion = await prisma.taskCompletion.findFirst({
       where: {
         taskId: task.id,
-        userId: user.id,
+        userId: targetUserId,  // ✅ FIXED: Use child's ID, not parent's ID
         completedAt: {
           gte: today
         }
@@ -55,20 +89,24 @@ export async function POST(request: NextRequest) {
       where: { id: completion.id }
     })
 
-    // Refund the points
-    if (user.userPoints) {
+    // ✅ FIXED: Refund the points to the ASSIGNED USER (child), not the parent
+    const targetUserPoints = await prisma.userPoints.findUnique({
+      where: { userId: targetUserId }
+    })
+
+    if (targetUserPoints) {
       await prisma.userPoints.update({
-        where: { userId: user.id },
+        where: { userId: targetUserId },  // ✅ FIXED: Deduct from child's points
         data: {
-          currentPoints: Math.max(0, user.userPoints.currentPoints - task.points),
-          totalEarned: Math.max(0, user.userPoints.totalEarned - task.points)
+          currentPoints: Math.max(0, targetUserPoints.currentPoints - task.points),
+          totalEarned: Math.max(0, targetUserPoints.totalEarned - task.points)
         }
       })
     }
 
     return NextResponse.json({
       success: true,
-      message: `Task unmarked. ${task.points} points removed.`
+      message: `Task unmarked. ${task.points} points removed${isParentUndoingForChild ? ` from ${task.assignedTo?.name}` : ''}.`
     })
 
   } catch (error) {

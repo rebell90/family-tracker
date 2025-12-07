@@ -69,6 +69,12 @@ export default function OverdueTasks() {
       today.setHours(0, 0, 0, 0)
       
       const filtered = data.filter(task => {
+        // Filter out completed tasks
+        if (task.completedToday || task.completedAt) {
+          console.log('Skipping completed task:', task.title)
+          return false
+        }
+        
         const taskDate = new Date(task.missedDate || task.createdAt || '')
         taskDate.setHours(0, 0, 0, 0)
 
@@ -102,6 +108,8 @@ export default function OverdueTasks() {
     setProcessingTask(uniqueKey)
     
     try {
+      console.log('🔄 Completing overdue task:', { taskId, missedDate })
+      
       const response = await fetch('/api/tasks/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -111,14 +119,19 @@ export default function OverdueTasks() {
         })
       })
 
+      const data = await response.json()
+      console.log('📥 Completion response:', data)
+
       if (response.ok) {
-        await fetchOverdueTasks()
+        console.log('✅ Task completed, refreshing overdue list...')
+        await fetchOverdueTasks()  // ✅ This should refresh
+        console.log('🎉 Overdue tasks refreshed!')
       } else {
-        const data = await response.json()
+        console.error('❌ Completion failed:', data.error)
         alert(data.error || 'Failed to complete task')
       }
     } catch (error) {
-      console.error('Error completing task:', error)
+      console.error('💥 Error completing task:', error)
       alert('Failed to complete task')
     } finally {
       setProcessingTask(null)
