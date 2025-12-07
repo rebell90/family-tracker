@@ -1,6 +1,5 @@
 // src/app/api/tasks/overdue/route.ts
-// FIXED: Shows overdue tasks from BEFORE the end date (catch-up feature)
-// FIXED: Uses targetUserId for completions and skips
+// FIXED: Returns completedToday and completedAt for filtering
 
 import { NextResponse, NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -30,6 +29,8 @@ interface OverdueTask {
     name: string | null
   } | null
   missedDate: string
+  completedToday?: boolean  // ✅ ADDED
+  completedAt?: Date | null  // ✅ ADDED
 }
 
 export async function GET(request: NextRequest) {
@@ -84,21 +85,11 @@ export async function GET(request: NextRequest) {
         },
       },
     })
-console.log('=== OVERDUE API DEBUG ===')
-console.log('Total tasks from DB:', tasks.length)
-console.log('Today:', today.toISOString())
-console.log('targetUserId:', targetUserId)
-console.log('\nTasks found:')
-tasks.forEach(task => {
-  console.log({
-    title: task.title,
-    isRecurring: task.isRecurring,
-    daysOfWeek: task.daysOfWeek,
-    startDate: task.startDate?.toISOString(),
-    recurringEndDate: task.recurringEndDate?.toISOString(),
-    createdAt: task.createdAt.toISOString()
-  })
-})
+
+    console.log('=== OVERDUE API DEBUG ===')
+    console.log('Total tasks from DB:', tasks.length)
+    console.log('Today:', today.toISOString())
+    console.log('targetUserId:', targetUserId)
 
     // ✅ FIXED: Get completions and skips for TARGET USER (child), not parent!
     const completions = await prisma.taskCompletion.findMany({
@@ -141,6 +132,14 @@ tasks.forEach(task => {
       skipMap.get(s.taskId)!.add(dateKey)
     })
 
+    // ✅ NEW: Also create a map for the actual completion dates
+    const completionDateMap = new Map<string, Date>()
+    completions.forEach(c => {
+      const dateKey = new Date(c.completedAt).toDateString()
+      const key = `${c.taskId}-${dateKey}`
+      completionDateMap.set(key, c.completedAt)
+    })
+
     const overdueTasks: OverdueTask[] = []
     const DAYS_MAP: { [key: string]: number } = {
       SUNDAY: 0,
@@ -158,9 +157,6 @@ tasks.forEach(task => {
       taskStartDate.setHours(0, 0, 0, 0)
 
       if (task.isRecurring && task.daysOfWeek.length > 0) {
-        // 🔧 FIXED: Don't skip the whole task if it ended
-        // Instead, only check dates up to the end date
-        
         const daysToCheck = task.daysOfWeek.map(d => DAYS_MAP[d])
         
         // Start checking from task start date (or 30 days ago, whichever is later)
@@ -168,7 +164,7 @@ tasks.forEach(task => {
         
         const checkDate = new Date(startCheckDate)
         
-        // 🆕 NEW: Determine last date to check
+        // Determine last date to check
         let lastCheckDate = new Date(today)
         lastCheckDate.setDate(lastCheckDate.getDate() - 1) // Yesterday
         lastCheckDate.setHours(0, 0, 0, 0)
@@ -178,7 +174,6 @@ tasks.forEach(task => {
           const endDate = new Date(task.recurringEndDate)
           endDate.setHours(0, 0, 0, 0)
           
-          // Only check dates up to the end date (or yesterday, whichever is earlier)
           if (lastCheckDate > endDate) {
             lastCheckDate = endDate
           }
@@ -188,18 +183,21 @@ tasks.forEach(task => {
           const dayOfWeek = checkDate.getDay()
           
           if (daysToCheck.includes(dayOfWeek)) {
-            // Only process if on or after task start date
             if (checkDate >= taskStartDate) {
               const dateKey = checkDate.toDateString()
               const isCompleted = completionMap.get(task.id)?.has(dateKey)
               const isSkipped = skipMap.get(task.id)?.has(dateKey)
               
-              if (!isCompleted && !isSkipped) {
-                overdueTasks.push({
-                  ...task,
-                  missedDate: checkDate.toISOString(),
-                })
-              }
+              // ✅ CHANGED: Always add task, with completion status
+              const completionKey = `${task.id}-${dateKey}`
+              const completedAt = completionDateMap.get(completionKey)
+              
+              overdueTasks.push({
+                ...task,
+                missedDate: checkDate.toISOString(),
+                completedToday: !!isCompleted,  // ✅ ADDED
+                completedAt: completedAt || null,  // ✅ ADDED
+              })
             }
           }
           
@@ -210,18 +208,20 @@ tasks.forEach(task => {
         const taskDate = new Date(task.createdAt)
         taskDate.setHours(0, 0, 0, 0)
         
-        // Only show as overdue if it's before today AND after start date
         if (taskDate < today && taskDate >= taskStartDate) {
           const dateKey = taskDate.toDateString()
           const isCompleted = completionMap.get(task.id)?.has(dateKey)
-          const isSkipped = skipMap.get(task.id)?.has(dateKey)
           
-          if (!isCompleted && !isSkipped) {
-            overdueTasks.push({
-              ...task,
-              missedDate: task.createdAt.toISOString(),
-            })
-          }
+          // ✅ CHANGED: Always add task, with completion status
+          const completionKey = `${task.id}-${dateKey}`
+          const completedAt = completionDateMap.get(completionKey)
+          
+          overdueTasks.push({
+            ...task,
+            missedDate: task.createdAt.toISOString(),
+            completedToday: !!isCompleted,  // ✅ ADDED
+            completedAt: completedAt || null,  // ✅ ADDED
+          })
         }
       }
     })
@@ -230,13 +230,10 @@ tasks.forEach(task => {
       new Date(b.missedDate).getTime() - new Date(a.missedDate).getTime()
     )
 
-console.log('\n=== FINAL RESULT ===')
-console.log('Overdue tasks found:', overdueTasks.length)
-console.log('Overdue tasks:', overdueTasks.map(t => ({
-  title: t.title,
-  missedDate: t.missedDate
-})))
-console.log('===================\n')
+    console.log('\n=== FINAL RESULT ===')
+    console.log('Total overdue tasks (before filter):', overdueTasks.length)
+    console.log('Completed tasks:', overdueTasks.filter(t => t.completedToday).length)
+    console.log('===================\n')
 
     return NextResponse.json({ tasks: overdueTasks })
   } catch (error) {

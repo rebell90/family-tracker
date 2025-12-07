@@ -10,29 +10,53 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { taskId, reason, skippedAt } = await request.json()  // ADD skippedAt
+    const { taskId, reason, skippedAt } = await request.json()
 
-    // Verify task exists and user has access
-    const task = await prisma.task.findFirst({
-      where: { 
-        id: taskId,
-        OR: [
-          { assignedToId: session.user.id },
-          { assignedToId: null }
-        ]
+    // Verify task exists and get assignedToId
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      select: {
+        id: true,
+        assignedToId: true,
+        assignedTo: {
+          select: {
+            familyId: true,
+            name: true
+          }
+        }
       }
     })
 
     if (!task) {
-      return NextResponse.json({ error: 'Task not found or access denied' }, { status: 404 })
+      return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
+
+    // Get current user
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { familyId: true, role: true }
+    })
+
+    // Check permissions
+    const isParentSkippingForChild = 
+      user?.role === 'PARENT' && 
+      task.assignedTo?.familyId === user.familyId
+
+    const isAssignedUser = session.user.id === task.assignedToId
+
+    if (!isAssignedUser && !isParentSkippingForChild) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+
+    // ✅ FIXED: Use task's assignedToId (child), not parent's ID
+    const targetUserId = task.assignedToId || session.user.id
 
     // Create a task skip record with the specific date
     await prisma.taskSkip.create({
       data: {
         taskId,
-        userId: session.user.id,
-        skippedAt: skippedAt ? new Date(skippedAt) : new Date(),  // USE PROVIDED DATE
+        userId: targetUserId,  // ✅ FIXED: Was session.user.id
+        skippedAt: skippedAt ? new Date(skippedAt) : new Date(),
         reason: reason || null
       }
     })
