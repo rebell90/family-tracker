@@ -86,7 +86,7 @@ export default function TaskManager() {
 
   const fetchTasks = async () => {
     try {
-      const response = await fetch('/api/tasks')
+      const response = await fetch('/api/tasks/all-children')
       if (response.ok) {
         const data = await response.json()
         console.log('Fetched tasks:', data.tasks)
