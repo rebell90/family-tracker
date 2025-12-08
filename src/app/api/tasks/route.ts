@@ -246,7 +246,10 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE /api/tasks - Delete a task
+/// UPDATE TO: src/app/api/tasks/route.ts
+// Add this to your existing DELETE function (replace the entire DELETE export)
+
+// DELETE /api/tasks - Delete a task and all related records
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -265,9 +268,14 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    // Verify user owns this task
+    // Verify task exists and user owns it
     const task = await prisma.task.findUnique({
       where: { id: taskId },
+      select: {
+        id: true,
+        createdById: true,
+        points: true
+      }
     })
 
     if (!task) {
@@ -284,13 +292,67 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    await prisma.task.delete({
-      where: { id: taskId },
+    console.log('🗑️ Deleting task and all related records:', taskId)
+
+    // Get all completions to deduct points
+    const completions = await prisma.taskCompletion.findMany({
+      where: { taskId: task.id },
+      select: { userId: true }
     })
 
-    return NextResponse.json({ message: 'Task deleted successfully' })
+    // Delete related records first (foreign key constraints)
+    await prisma.taskCompletion.deleteMany({
+      where: { taskId: task.id }
+    })
+    console.log('✓ Deleted task completions')
+
+    await prisma.taskSkip.deleteMany({
+      where: { taskId: task.id }
+    })
+    console.log('✓ Deleted task skips')
+
+    await prisma.notification.deleteMany({
+      where: { 
+        OR: [
+          { message: { contains: taskId } },
+          { title: { contains: task.id } }
+        ]
+      }
+    })
+    console.log('✓ Deleted related notifications')
+
+    // Delete the task itself
+    await prisma.task.delete({
+      where: { id: taskId }
+    })
+    console.log('✓ Deleted task')
+
+    // Deduct points from users who completed this task
+    const userPointsToDeduct = completions.reduce((acc, completion) => {
+      acc[completion.userId] = (acc[completion.userId] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+
+    for (const [userId, count] of Object.entries(userPointsToDeduct)) {
+      const pointsToDeduct = count * task.points
+      await prisma.userPoints.update({
+        where: { userId },
+        data: {
+          currentPoints: { decrement: pointsToDeduct },
+          totalEarned: { decrement: pointsToDeduct }
+        }
+      })
+      console.log(`✓ Deducted ${pointsToDeduct} points from user ${userId}`)
+    }
+
+    console.log('✅ Task deleted successfully:', taskId)
+
+    return NextResponse.json({ 
+      message: 'Task and all related data deleted successfully',
+      pointsDeducted: Object.values(userPointsToDeduct).reduce((sum, count) => sum + (count * task.points), 0)
+    })
   } catch (error) {
-    console.error('Error deleting task:', error)
+    console.error('💥 Error deleting task:', error)
     return NextResponse.json(
       { error: 'Failed to delete task' },
       { status: 500 }
