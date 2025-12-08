@@ -8,7 +8,7 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -17,7 +17,8 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const taskId = params.id  // ✅ CHANGED: Use params.id
+    const params = await context.params  // ✅ FIXED: Await params
+    const taskId = params.id
 
     // Verify task exists and user has access
     const task = await prisma.task.findUnique({
