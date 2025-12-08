@@ -208,14 +208,22 @@ export default function ParentDashboard() {
     }
   }
 
-  const fetchOverdueForChild = async (): Promise<void> => {
+const fetchOverdueForChild = async (): Promise<void> => {
     if (selectedChildId === 'all') {
       try {
         const countPromises = children.map((child: Child) =>
           fetch(`/api/tasks/overdue?userId=${child.id}`).then(r => r.json())
         )
         const allOverdue: OverdueResponse[] = await Promise.all(countPromises)
-        const total = allOverdue.reduce((sum, data) => sum + (data.tasks?.length || 0), 0)
+        
+        // ✅ FIXED: Filter out completed and skipped tasks
+        const total = allOverdue.reduce((sum, data) => {
+          const actualOverdue = (data.tasks || []).filter(
+            t => !t.completedToday && !t.completedAt && !t.skippedToday
+          )
+          return sum + actualOverdue.length
+        }, 0)
+        
         setOverdueCount(total)
       } catch (error) {
         console.error('Error fetching overdue count:', error)
@@ -224,7 +232,12 @@ export default function ParentDashboard() {
       try {
         const response = await fetch(`/api/tasks/overdue?userId=${selectedChildId}`)
         const data: OverdueResponse = await response.json()
-        setOverdueCount(data.tasks?.length || 0)
+        
+        // ✅ FIXED: Filter out completed and skipped tasks
+        const actualOverdue = (data.tasks || []).filter(
+          t => !t.completedToday && !t.completedAt && !t.skippedToday
+        )
+        setOverdueCount(actualOverdue.length)
       } catch (error) {
         console.error('Error fetching overdue count:', error)
       }
