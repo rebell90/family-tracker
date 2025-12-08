@@ -486,7 +486,7 @@ export default function TaskManager() {
                   id="startDate"
                   value={formData.startDate}
                   onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
-                  min={new Date().toISOString().split('T')[0]}
+                  min={editingTask ? undefined : new Date().toISOString().split('T')[0]}  // ✅ Only restrict on create
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white"
                 />
                 <p className="text-xs text-gray-500 mt-1">
