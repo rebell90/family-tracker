@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { Plus, Edit, Trash2, Save, X, User, Clock, Calendar } from 'lucide-react'
 import { TASK_CATEGORIES, getCategoryInfo, type TaskCategory } from '@/lib/categories'
 import Modal from './Modal'
+import DeleteTaskModal from './DeleteTaskModal'
 
 interface Task {
   id: string
@@ -60,6 +61,8 @@ export default function TaskManager() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingTask, setEditingTask] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null)
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -173,23 +176,50 @@ export default function TaskManager() {
     }
   }
 
-  const deleteTask = async (taskId: string) => {
-    if (!confirm('Are you sure you want to delete this task?')) return
-    
-    try {
-      const response = await fetch(`/api/tasks/${taskId}`, {
-        method: 'DELETE',
-      })
+const initiateDelete = (task: Task) => {
+    setTaskToDelete(task)
+    setDeleteModalOpen(true)
+  }
 
-      if (response.ok) {
-        fetchTasks()
+  const handleDeleteAction = async (action: 'end' | 'delete') => {
+    if (!taskToDelete) return
+
+    try {
+      if (action === 'end') {
+        // End the task (set end date to yesterday)
+        const response = await fetch(`/api/tasks/${taskToDelete.id}/end`, {
+          method: 'POST'
+        })
+
+        if (response.ok) {
+          console.log('✅ Task ended successfully')
+          await fetchTasks()
+          setDeleteModalOpen(false)
+          setTaskToDelete(null)
+        } else {
+          const errorData = await response.json()
+          console.error('End task error:', errorData)
+          setError(errorData.error || 'Failed to end task')
+        }
       } else {
-        const errorData = await response.json()
-        console.error('Delete error:', errorData)
-        setError(errorData.error || 'Failed to delete task')
+        // Delete forever
+        const response = await fetch(`/api/tasks?id=${taskToDelete.id}`, {
+          method: 'DELETE'
+        })
+
+        if (response.ok) {
+          console.log('✅ Task deleted successfully')
+          await fetchTasks()
+          setDeleteModalOpen(false)
+          setTaskToDelete(null)
+        } else {
+          const errorData = await response.json()
+          console.error('Delete error:', errorData)
+          setError(errorData.error || 'Failed to delete task')
+        }
       }
     } catch (error) {
-      console.error('Error deleting task:', error)
+      console.error('Error handling delete action:', error)
       setError('Network error occurred. Please try again.')
     }
   }
@@ -645,7 +675,7 @@ export default function TaskManager() {
                           <Edit size={16} />
                         </button>
                         <button
-                          onClick={() => deleteTask(task.id)}
+                          onClick={() => initiateDelete(task)}
                           className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
                           aria-label="Delete task"
                         >
@@ -666,6 +696,16 @@ export default function TaskManager() {
           </div>
         )}
       </div>
+      {/* Delete Task Modal */}
+      <DeleteTaskModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false)
+          setTaskToDelete(null)
+        }}
+        task={taskToDelete}
+        onConfirm={handleDeleteAction}
+      />
     </div>
   )
 }
