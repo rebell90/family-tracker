@@ -345,7 +345,7 @@ export default function HabitManager() {
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-lg">{type.icon}</span>
-                    <span className="font-medium text-sm">{type.label}</span>
+                    <span className="font-medium text-sm text-gray-800">{type.label}</span>
                   </div>
                   <p className="text-xs text-gray-600">{type.examples}</p>
                 </button>
