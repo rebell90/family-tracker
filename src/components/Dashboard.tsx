@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { Star, CheckCircle, Gift, Clock, Sun, Moon, Target } from 'lucide-react'
+import { Star, CheckCircle, Gift, Clock, Sun, Moon, Target, AlertCircle } from 'lucide-react'
 import RewardManager from './RewardManager'
 import HabitTracker from './HabitTracker'
+import Link from 'next/link'
 
 // ============================================================================
 // TYPES
@@ -104,6 +105,7 @@ export default function Dashboard() {
   const [showRewardManager, setShowRewardManager] = useState(false)
   const [completingTask, setCompletingTask] = useState<string | null>(null)
   const [showHabitTracker, setShowHabitTracker] = useState(false)
+  const [overdueTasks, setOverdueTasks] = useState<number>(0) // ✅ ADDED
 
   const userName = session?.user?.name || 'there'
 
@@ -115,6 +117,7 @@ export default function Dashboard() {
     if (session?.user) {
       fetchTasks()
       fetchUserPoints()
+      fetchOverdueCount() // ✅ ADDED
     }
   }, [session])
 
@@ -125,6 +128,13 @@ export default function Dashboard() {
       
       const data: Task[] = Array.isArray(result) ? result : (result.tasks || [])
       setTasks(data)
+      
+      // ✅ CALCULATE tasksCompletedToday from tasks
+      const completedToday = data.filter(t => t.completedToday || t.completedAt).length
+      setStats(prev => ({
+        ...prev,
+        tasksCompletedToday: completedToday
+      }))
     } catch (error) {
       console.error('Error fetching tasks:', error)
     }
@@ -143,6 +153,21 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error('Error fetching points:', error)
+    }
+  }
+
+  const fetchOverdueCount = async () => { // ✅ NEW FUNCTION
+    try {
+      const response = await fetch('/api/tasks/overdue')
+      if (response.ok) {
+        const data = await response.json()
+        const actualOverdue = (data.tasks || []).filter(
+          (t: Task) => !t.completedToday && !t.completedAt && !t.skippedToday
+        )
+        setOverdueTasks(actualOverdue.length)
+      }
+    } catch (error) {
+      console.error('Error fetching overdue tasks:', error)
     }
   }
 
@@ -165,6 +190,7 @@ export default function Dashboard() {
       if (response.ok) {
         await fetchTasks()
         await fetchUserPoints()
+        await fetchOverdueCount() // ✅ ADDED
       } else {
         console.error('Failed to complete task')
       }
@@ -185,6 +211,7 @@ export default function Dashboard() {
 
       if (response.ok) {
         await fetchTasks()
+        await fetchOverdueCount() // ✅ ADDED
       } else {
         console.error('Failed to skip task')
       }
@@ -204,6 +231,7 @@ export default function Dashboard() {
       if (response.ok) {
         await fetchTasks()
         await fetchUserPoints()
+        await fetchOverdueCount() // ✅ ADDED
       } else {
         console.error('Failed to undo task')
       }
@@ -347,6 +375,33 @@ export default function Dashboard() {
             </button>
           </div>
         </div>
+
+        {/* Overdue Tasks Banner */}
+        {overdueTasks > 0 && (
+          <Link 
+            href="/overdue-tasks"
+            className="block mb-6 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl p-4 shadow-lg hover:shadow-xl transition-all cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-white/20 p-2 rounded-lg">
+                  <AlertCircle size={24} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg">
+                    {overdueTasks} Task{overdueTasks !== 1 ? 's' : ''} Need{overdueTasks === 1 ? 's' : ''} Attention!
+                  </h3>
+                  <p className="text-white/90 text-sm">
+                    Tap to complete or skip overdue tasks
+                  </p>
+                </div>
+              </div>
+              <div className="text-white/80">
+                →
+              </div>
+            </div>
+          </Link>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
