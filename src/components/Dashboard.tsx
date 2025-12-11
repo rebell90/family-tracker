@@ -255,6 +255,21 @@ export default function Dashboard() {
     return now <= endDate
   }
 
+  const isTaskForToday = (task: Task): boolean => {
+    // Non-recurring tasks are always shown
+    if (!task.isRecurring) return true
+    
+    // If no days specified, show it
+    if (!task.daysOfWeek || task.daysOfWeek.length === 0) return true
+    
+    // Check if today is in the daysOfWeek array
+    const today = new Date().getDay() // 0 = Sunday, 1 = Monday, etc.
+    const dayNames = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY']
+    const todayName = dayNames[today]
+    
+    return task.daysOfWeek.includes(todayName)
+  }
+
   const getEndDateStatus = (task: Task) => {
     if (!task.isRecurring || !task.recurringEndDate) return null
     
@@ -285,8 +300,8 @@ export default function Dashboard() {
     return 'ANYTIME'
   }
 
-  // Filter active tasks for today
-  const todaysTasks = tasks.filter(task => isTaskActive(task))
+  // Filter active tasks for today (both active AND scheduled for today)
+  const todaysTasks = tasks.filter(task => isTaskActive(task) && isTaskForToday(task))
 
   // Group tasks by time period
   const tasksByPeriod: Record<TimePeriodKey, Task[]> = {
@@ -502,7 +517,12 @@ export default function Dashboard() {
                 <div className="p-4 space-y-3">
                   {periodTasks.map((task) => {
                     const isCompleted = task.completedToday || task.completedAt
+                    const isSkipped = task.skippedToday // ✅ ADDED
+                    const isDone = isCompleted || isSkipped // ✅ ADDED
                     const endStatus = getEndDateStatus(task)
+
+                    // ✅ Don't show skipped tasks at all
+                    if (isSkipped) return null
 
                     return (
                       <div
