@@ -2,15 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { Star, CheckCircle, Gift, Settings, Users, Clock, Sun, Moon, Target } from 'lucide-react'
-import TaskManager from './TaskManager'
-import FamilyManager from './FamilyManager'
+import { Star, CheckCircle, Gift, Clock, Sun, Moon, Target } from 'lucide-react'
 import RewardManager from './RewardManager'
-import Link from 'next/link'
-import { AlertCircle, ExternalLink } from 'lucide-react'
 import HabitTracker from './HabitTracker'
-import HabitManager from './HabitManager'
-import ParentWeeklyView from './ParentWeeklyView'
+
+// ============================================================================
+// TYPES
+// ============================================================================
 
 interface Task {
   id: string
@@ -23,9 +21,7 @@ interface Task {
   skippedToday?: boolean
   timePeriod?: string
   isRecurring: boolean
-  daysOfWeek: string[]
   category?: string
-  startDate?: string | Date | null  
   recurringEndDate?: string | null
   assignedTo?: {
     id: string
@@ -40,18 +36,22 @@ interface UserStats {
   streak: number
 }
 
-interface TaskCompletion {
-  taskId: string
-  completedAt: Date
-  userId: string
+type TimePeriodKey = 'MORNING' | 'AFTERNOON' | 'EVENING' | 'ANYTIME'
+
+interface TimePeriodInfo {
+  label: string
+  subtitle: string
+  icon: React.ComponentType<{ size?: number }>
+  color: string
+  borderColor: string
+  bgColor: string
 }
 
-interface TaskSkip {
-  taskId: string
-  skippedAt: Date
-}
+// ============================================================================
+// CONSTANTS
+// ============================================================================
 
-const TIME_PERIODS = {
+const TIME_PERIODS: Record<TimePeriodKey, TimePeriodInfo> = {
   MORNING: { 
     label: 'Morning', 
     subtitle: '6 AM - 12 PM',
@@ -86,18 +86,14 @@ const TIME_PERIODS = {
   }
 }
 
-const DAYS_MAP = {
-  SUNDAY: 0,
-  MONDAY: 1,
-  TUESDAY: 2,
-  WEDNESDAY: 3,
-  THURSDAY: 4,
-  FRIDAY: 5,
-  SATURDAY: 6
-}
+// ============================================================================
+// COMPONENT
+// ============================================================================
 
 export default function Dashboard() {
   const { data: session } = useSession()
+  
+  // State
   const [tasks, setTasks] = useState<Task[]>([])
   const [stats, setStats] = useState<UserStats>({
     currentPoints: 0,
@@ -105,34 +101,120 @@ export default function Dashboard() {
     tasksCompletedToday: 0,
     streak: 0
   })
-  const [showTaskManager, setShowTaskManager] = useState(false)
-  const [showFamilyManager, setShowFamilyManager] = useState(false)
   const [showRewardManager, setShowRewardManager] = useState(false)
   const [completingTask, setCompletingTask] = useState<string | null>(null)
-  const [overdueTasks, setOverdueTasks] = useState<number>(0)
-  const [showHabitManager, setShowHabitManager] = useState(false)
   const [showHabitTracker, setShowHabitTracker] = useState(false)
-  const [showWeeklyView, setShowWeeklyView] = useState(false)
 
-  const user = session?.user as { name?: string; role?: string } | undefined
-  const isParent = user?.role === 'PARENT'
-  const isChild = user?.role === 'CHILD'
+  const userName = session?.user?.name || 'there'
 
-  console.log('Debug info:', {
-    session: session,
-    user: user,
-    userRole: user?.role,
-    isParent: isParent,
-    showFamilyManager: showFamilyManager
-  });
+  // ============================================================================
+  // DATA FETCHING
+  // ============================================================================
 
   useEffect(() => {
     if (session?.user) {
       fetchTasks()
       fetchUserPoints()
-      fetchOverdueCount()
     }
   }, [session])
+
+  const fetchTasks = async () => {
+    try {
+      const response = await fetch('/api/tasks')
+      const result = await response.json()
+      
+      const data: Task[] = Array.isArray(result) ? result : (result.tasks || [])
+      setTasks(data)
+    } catch (error) {
+      console.error('Error fetching tasks:', error)
+    }
+  }
+
+  const fetchUserPoints = async () => {
+    try {
+      const response = await fetch('/api/user/points')
+      if (response.ok) {
+        const data = await response.json()
+        setStats(prev => ({
+          ...prev,
+          currentPoints: data.currentPoints,
+          totalEarned: data.totalEarned
+        }))
+      }
+    } catch (error) {
+      console.error('Error fetching points:', error)
+    }
+  }
+
+  // ============================================================================
+  // TASK ACTIONS
+  // ============================================================================
+
+  const handleCompleteTask = async (taskId: string, taskTitle: string) => {
+    if (completingTask === taskId) return
+
+    setCompletingTask(taskId)
+    
+    try {
+      const response = await fetch('/api/tasks/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId })
+      })
+
+      if (response.ok) {
+        await fetchTasks()
+        await fetchUserPoints()
+      } else {
+        console.error('Failed to complete task')
+      }
+    } catch (error) {
+      console.error('Error completing task:', error)
+    } finally {
+      setCompletingTask(null)
+    }
+  }
+
+  const handleSkipTask = async (taskId: string, taskTitle: string) => {
+    try {
+      const response = await fetch('/api/tasks/skip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId })
+      })
+
+      if (response.ok) {
+        await fetchTasks()
+      } else {
+        console.error('Failed to skip task')
+      }
+    } catch (error) {
+      console.error('Error skipping task:', error)
+    }
+  }
+
+  const handleUndoTask = async (taskId: string, taskTitle: string) => {
+    try {
+      const response = await fetch('/api/tasks/undo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId })
+      })
+
+      if (response.ok) {
+        await fetchTasks()
+        await fetchUserPoints()
+      } else {
+        console.error('Failed to undo task')
+      }
+    } catch (error) {
+      console.error('Error undoing task:', error)
+    }
+  }
+
+  // ============================================================================
+  // TASK FILTERING & HELPERS
+  // ============================================================================
 
   const isTaskActive = (task: Task): boolean => {
     if (!task.isRecurring) return true
@@ -167,116 +249,7 @@ export default function Dashboard() {
     return { text: `Ends ${endDate.toLocaleDateString()}`, color: 'bg-blue-100 text-blue-700', icon: '📅' }
   }
 
-const fetchTasks = async () => {
-  try {
-    const response = await fetch('/api/tasks')
-    const result = await response.json()
-    
-    console.log('API Response:', result)
-    
-    const data: Task[] = Array.isArray(result) ? result : (result.tasks || [])
-    
-    // The API already includes correct completion status per user
-    // Just use the data directly!
-    setTasks(data)
-  } catch (error) {
-    console.error('Error fetching tasks:', error)
-  }
-}
-
-  const fetchUserPoints = async () => {
-    try {
-      const response = await fetch('/api/user/points')
-      if (response.ok) {
-        const data = await response.json()
-        setStats(prev => ({
-          ...prev,
-          currentPoints: data.currentPoints,
-          totalEarned: data.totalEarned
-        }))
-      }
-    } catch (error) {
-      console.error('Error fetching points:', error)
-    }
-  }
-
-const fetchOverdueCount = async () => {
-  try {
-    const response = await fetch('/api/tasks/overdue')
-    const data = await response.json()
-    
-    console.log('🔍 Overdue API response:', data)  // Keep for debugging
-    
-    setOverdueTasks(data.tasks?.length || 0)
-  } catch (error) {
-    console.error('Error fetching overdue count:', error)
-  }
-}
-
-
-  const handleCompleteTask = async (taskId: string, taskTitle: string) => {
-    const confirmed = window.confirm(`Complete "${taskTitle}"?\n\nYou'll earn points for completing this task.`)
-    
-    if (!confirmed) return
-    
-    setCompletingTask(taskId)
-    
-    try {
-      const response = await fetch('/api/tasks/complete', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ taskId }),
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        alert(data.message)
-        fetchTasks()
-        fetchUserPoints()
-      } else {
-        alert(data.error)
-      }
-    } catch (error) {
-      console.error('Error completing task:', error)
-      alert('Failed to complete task')
-    } finally {
-      setCompletingTask(null)
-    }
-  }
-
-  const handleUndoTask = async (taskId: string, taskTitle: string) => {
-    const confirmed = window.confirm(`Undo completion of "${taskTitle}"?\n\nPoints will be removed from your total.`)
-    
-    if (!confirmed) return
-    
-    try {
-      const response = await fetch('/api/tasks/undo', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ taskId }),
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        alert(data.message)
-        fetchTasks()
-        fetchUserPoints()
-      } else {
-        alert(data.error)
-      }
-    } catch (error) {
-      console.error('Error undoing task:', error)
-      alert('Failed to undo task completion')
-    }
-  }
-
-  const getCurrentTimePeriod = () => {
+  const getCurrentPeriod = (): TimePeriodKey => {
     const hour = new Date().getHours()
     if (hour >= 6 && hour < 12) return 'MORNING'
     if (hour >= 12 && hour < 18) return 'AFTERNOON'
@@ -284,417 +257,167 @@ const fetchOverdueCount = async () => {
     return 'ANYTIME'
   }
 
+  // Filter active tasks for today
+  const todaysTasks = tasks.filter(task => isTaskActive(task))
 
-const getTasksForToday = () => {
-  const today = new Date().getDay()
-  const dayName = Object.keys(DAYS_MAP)[Object.values(DAYS_MAP).indexOf(today)]
-
-  return tasks.filter(task => {
-    // Check if task is still active (hasn't passed its end date)
-    if (!isTaskActive(task)) return false
-    
-    // For non-recurring tasks, always show them (one-time tasks)
-    if (!task.isRecurring) return true
-    
-    // For recurring tasks with specific days, check if today is included
-    if (task.isRecurring && task.daysOfWeek.length > 0) {
-      return task.daysOfWeek.includes(dayName)
-    }
-    
-    // For recurring tasks with no specific days (every day), show them
-    return true
-  })
-}
-
-  const groupTasksByTimePeriod = (tasks: Task[]) => {
-    return tasks.reduce((acc, task) => {
-      const period = task.timePeriod || 'ANYTIME'
-      if (!acc[period]) {
-        acc[period] = []
-      }
-      acc[period].push(task)
-      return acc
-    }, {} as Record<string, Task[]>)
+  // Group tasks by time period
+  const tasksByPeriod: Record<TimePeriodKey, Task[]> = {
+    MORNING: todaysTasks.filter(t => t.timePeriod === 'MORNING'),
+    AFTERNOON: todaysTasks.filter(t => t.timePeriod === 'AFTERNOON'),
+    EVENING: todaysTasks.filter(t => t.timePeriod === 'EVENING'),
+    ANYTIME: todaysTasks.filter(t => !t.timePeriod || t.timePeriod === 'ANYTIME')
   }
 
-  const handleSkipTask = async (taskId: string, taskTitle: string) => {
-    const reason = window.prompt(`Why are you skipping "${taskTitle}"? (optional)`)
-    if (reason === null) return
-    
-    console.log('Skipping task:', taskId, 'with reason:', reason)
-    
-    try {
-      const response = await fetch('/api/tasks/skip', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ taskId, reason })
-      })
+  const currentPeriod = getCurrentPeriod()
 
-      console.log('Skip response status:', response.status)
-      const data = await response.json()
-      console.log('Skip response data:', data)
-
-      if (response.ok) {
-        alert('Task skipped')
-        console.log('Calling fetchTasks after skip')
-        fetchTasks()
-        fetchOverdueCount()
-      } else {
-        alert(data.error || 'Failed to skip task')
-      }
-    } catch (error) {
-      console.error('Error skipping task:', error)
-      alert('Failed to skip task')
-    }
-  }
-
-  const todaysTasks = getTasksForToday()
-  const tasksByPeriod = groupTasksByTimePeriod(todaysTasks)
-  const currentPeriod = getCurrentTimePeriod()
-
-  // SUB-PAGE VIEWS - Mobile responsive
-  if (isParent && showTaskManager) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-3 sm:p-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Task Manager</h1>
-            <button
-              onClick={() => setShowTaskManager(false)}
-              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors w-full sm:w-auto"
-            >
-              Back to Dashboard
-            </button>
-          </div>
-          <TaskManager />
-        </div>
-      </div>
-    )
-  }
-
-  if (isParent && showFamilyManager) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-3 sm:p-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Family Manager</h1>
-            <button
-              onClick={() => setShowFamilyManager(false)}
-              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors w-full sm:w-auto"
-            >
-              Back to Dashboard
-            </button>
-          </div>
-          <FamilyManager />
-        </div>
-      </div>
-    )
-  }
+  // ============================================================================
+  // MODALS
+  // ============================================================================
 
   if (showRewardManager) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-3 sm:p-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Reward Store</h1>
-            <button
-              onClick={() => setShowRewardManager(false)}
-              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors w-full sm:w-auto"
-            >
-              Back to Dashboard
-            </button>
-          </div>
-          <RewardManager />
-        </div>
-      </div>
-    )
+    return <RewardManager onClose={() => setShowRewardManager(false)} />
   }
 
-  // Habit Manager view (Parents)
-  if (isParent && showHabitManager) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-3xl font-bold text-gray-800">Habit Manager</h1>
-            <button
-              onClick={() => setShowHabitManager(false)}
-              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              Back to Dashboard
-            </button>
-          </div>
-          <HabitManager />
-        </div>
-      </div>
-    )
-  }
-
-//Weekly Reporting
-  if (isParent && showWeeklyView) {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Weekly Progress</h1>
-          <button
-            onClick={() => setShowWeeklyView(false)}
-            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
-          >
-            Back to Dashboard
-          </button>
-        </div>
-        <ParentWeeklyView />
-      </div>
-    </div>
-  )
-}
-
-  // Habit Tracker view (Kids)
   if (showHabitTracker) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-3xl font-bold text-gray-800">My Habits</h1>
-            <button
-              onClick={() => setShowHabitTracker(false)}
-              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              Back to Dashboard
-            </button>
-          </div>
-          <HabitTracker />
-        </div>
-      </div>
-    )
+    return <HabitTracker onClose={() => setShowHabitTracker(false)} />
   }
 
-  // MAIN DASHBOARD - Mobile responsive
+  // ============================================================================
+  // RENDER
+  // ============================================================================
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-3 sm:p-6">
-      <div className="max-w-4xl mx-auto">
-        {/* Header - MOBILE RESPONSIVE */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 p-4 sm:p-6">
+      <div className="max-w-6xl mx-auto">
+        
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
-              Hi {session?.user?.name || 'there'}! 👋
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-800">
+              Hi {userName}! 👋
             </h1>
-            <p className="text-gray-600 mt-1 text-sm sm:text-base">
-              {isChild ? "Let's see what you can accomplish today!" : "Family Dashboard"}
+            <p className="text-gray-600 mt-1">
+              Let&apos;s see what you can accomplish today!
             </p>
           </div>
-          
-          {/* Parent Buttons - Mobile Responsive */}
-          {isParent && (
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setShowFamilyManager(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none min-w-[90px]"
-              >
-                <Users size={18} />
-                <span className="text-sm sm:text-base">Family</span>
-              </button>
-              <button
-                onClick={() => setShowTaskManager(true)}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-3 sm:px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none min-w-[90px]"
-              >
-                <Settings size={18} />
-                <span className="text-sm sm:text-base">Tasks</span>
-              </button>
-              <button
-                onClick={() => setShowRewardManager(true)}
-                className="bg-green-600 hover:bg-green-700 text-white px-3 sm:px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none min-w-[90px]"
-              >
-                <Gift size={18} />
-                <span className="text-sm sm:text-base">Rewards</span>
-              </button>
-              <button
-                onClick={() => setShowHabitManager(true)}
-                className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-              >
-                <Target size={20} />
-                Habits
-              </button>
-            </div>
-          )}
-          
-          {/* Child Button - Mobile Responsive */}
-          {isChild && (
-            <div className="flex flex-wrap gap-2">
+          <div className="flex gap-2">
             <button
               onClick={() => setShowRewardManager(true)}
-              className="bg-green-600 hover:bg-green-700 text-white px-3 sm:px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors w-full sm:w-auto"
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
             >
-              <Gift size={18} />
-              <span className="text-sm sm:text-base">Reward Store</span>
+              <Gift size={20} />
+              Reward Store
             </button>
-              <button
-                onClick={() => setShowHabitTracker(true)}
-                className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-              >
-                <Target size={20} />
-                My Habits
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Stats Cards - MOBILE RESPONSIVE: 2 columns on mobile, 4 on desktop */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
-          <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="bg-yellow-100 p-2 rounded-lg shrink-0">
-                <Star className="text-yellow-600" size={20} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs sm:text-sm text-gray-600">Current Points</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-800 truncate">{stats.currentPoints}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="bg-green-100 p-2 rounded-lg shrink-0">
-                <CheckCircle className="text-green-600" size={20} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs sm:text-sm text-gray-600">Tasks Today</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-800 truncate">{stats.tasksCompletedToday}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="bg-blue-100 p-2 rounded-lg shrink-0">
-                <Gift className="text-blue-600" size={20} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs sm:text-sm text-gray-600">Total Earned</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-800 truncate">{stats.totalEarned}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="bg-orange-100 p-2 rounded-lg shrink-0">
-                <span className="text-orange-600 text-xl">🔥</span>
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs sm:text-sm text-gray-600">Streak Days</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-800 truncate">{stats.streak}</p>
-              </div>
-            </div>
+            <button
+              onClick={() => setShowHabitTracker(true)}
+              className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+            >
+              <Target size={20} />
+              Habits
+            </button>
           </div>
         </div>
 
-        {/* ✅ NEW: Overdue Alert */}
-        {overdueTasks > 0 && (
-          <div className="mb-6 bg-orange-50 border-l-4 border-orange-500 p-4 rounded-lg shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0">
-                <span className="text-2xl">📅</span>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-3">
+              <div className="bg-yellow-100 p-2 rounded-lg">
+                <Star className="text-yellow-600" size={24} />
               </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-orange-800 mb-1">
-                  You have {overdueTasks} overdue task{overdueTasks !== 1 ? 's' : ''}
-                </h3>
-                <p className="text-sm text-orange-700 mb-3">
-                  Tasks from the past week that need attention
-                </p>
-                <button
-                  onClick={() => window.location.href = '/overdue-tasks'}
-                  className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2"
-                >
-                  View Overdue Tasks
-                  <span>→</span>
-                </button>
+              <div>
+                <p className="text-sm text-gray-600">Current Points</p>
+                <p className="text-2xl font-bold text-gray-800">{stats.currentPoints}</p>
               </div>
             </div>
           </div>
-        )}
 
-        {/* Today's Schedule */}
-        <div className="space-y-4 sm:space-y-6">
-          <div className="text-center mb-4 sm:mb-6">
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">Today&apos;s Schedule</h2>
-            <p className="text-sm sm:text-base text-gray-600">
-              {new Date().toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })}
-            </p>
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-3">
+              <div className="bg-green-100 p-2 rounded-lg">
+                <CheckCircle className="text-green-600" size={24} />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Tasks Today</p>
+                <p className="text-2xl font-bold text-gray-800">{stats.tasksCompletedToday}</p>
+              </div>
+            </div>
           </div>
 
-          {Object.entries(TIME_PERIODS).map(([periodKey, periodInfo]) => {
-            const periodTasks = tasksByPeriod[periodKey] || []
-            const visibleTasks = periodTasks.filter(t => !t.skippedToday)
-            const isCurrentPeriod = periodKey === currentPeriod
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-3">
+              <div className="bg-blue-100 p-2 rounded-lg">
+                <Gift className="text-blue-600" size={24} />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Total Earned</p>
+                <p className="text-2xl font-bold text-gray-800">{stats.totalEarned}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-3">
+              <div className="bg-orange-100 p-2 rounded-lg">
+                <Star className="text-orange-600" size={24} />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Streak</p>
+                <p className="text-2xl font-bold text-gray-800">{stats.streak} days 🔥</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Tasks by Time Period */}
+        <div className="space-y-6">
+          {(Object.keys(TIME_PERIODS) as TimePeriodKey[]).map((period) => {
+            const periodTasks = tasksByPeriod[period]
+            if (periodTasks.length === 0) return null
+
+            const periodInfo = TIME_PERIODS[period]
             const IconComponent = periodInfo.icon
-
-            if (visibleTasks.length === 0) return null           
+            const isCurrentPeriod = period === currentPeriod
 
             return (
-              <div 
-                key={periodKey}
-                className={`bg-white rounded-xl shadow-sm border-2 transition-all ${
+              <div
+                key={period}
+                className={`bg-white rounded-xl shadow-sm border-2 overflow-hidden transition-shadow ${
                   isCurrentPeriod 
                     ? `${periodInfo.borderColor} shadow-md` 
                     : 'border-gray-100'
                 }`}
               >
-                {/* Period Header - MOBILE RESPONSIVE */}
-                <div className={`p-3 sm:p-4 rounded-t-xl ${isCurrentPeriod ? periodInfo.bgColor : 'bg-gray-50'}`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                      <div className={`p-1.5 sm:p-2 rounded-lg ${periodInfo.color} shrink-0`}>
-                        <IconComponent size={18} />
+                {/* Period Header */}
+                <div className={`p-4 rounded-t-xl ${isCurrentPeriod ? periodInfo.bgColor : 'bg-gray-50'}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${periodInfo.color}`}>
+                        <IconComponent size={20} />
                       </div>
-                      <div className="min-w-0">
-                        <h3 className="font-semibold text-gray-800 flex items-center gap-2 text-sm sm:text-base">
-                          <span className="truncate">{periodInfo.label}</span>
+                      <div>
+                        <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                          {periodInfo.label}
                           {isCurrentPeriod && (
-                            <span className="bg-green-500 text-white text-xs px-2 py-0.5 rounded-full whitespace-nowrap shrink-0">
+                            <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">
                               Current
                             </span>
                           )}
                         </h3>
-                        <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">{periodInfo.subtitle}</p>
+                        <p className="text-sm text-gray-600">{periodInfo.subtitle}</p>
                       </div>
                     </div>
-                    <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap shrink-0">
-                      {visibleTasks.length} task{visibleTasks.length !== 1 ? 's' : ''}
+                    <span className="text-sm text-gray-500">
+                      {periodTasks.length} task{periodTasks.length !== 1 ? 's' : ''}
                     </span>
                   </div>
                 </div>
 
-                {/* Tasks - MOBILE RESPONSIVE */}
-                <div className="p-3 sm:p-4 space-y-2 sm:space-y-3">
+                {/* Tasks */}
+                <div className="p-4 space-y-3">
                   {periodTasks.map((task) => {
-                    const isCompleted = task.completedToday === true || 
-                      (task.completedAt !== null && 
-                      task.completedAt !== undefined
-                      )
-                    const isSkipped = task.skippedToday === true 
-
-                    console.log('Task Debug:', {
-                      title: task.title,
-                      completedToday: task.completedToday,
-                      skippedToday: task.skippedToday,
-                      completedAt: task.completedAt,
-                      completedAtType: typeof task.completedAt,
-                      isCompleted: isCompleted,
-                      isSkipped: isSkipped
-                    })
-
-                    if (isSkipped) return null
+                    const isCompleted = task.completedToday || task.completedAt
+                    const endStatus = getEndDateStatus(task)
 
                     return (
                       <div
@@ -721,21 +444,21 @@ const getTasksForToday = () => {
 
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                              <h4 className={`font-medium text-sm sm:text-base break-words ${isCompleted ? 'text-gray-500 line-through' : 'text-gray-800'}`}>
+                              <h4 className={`font-medium text-sm sm:text-base break-words ${
+                                isCompleted ? 'text-gray-500 line-through' : 'text-gray-800'
+                              }`}>
                                 {task.title}
                               </h4>
-                              {(() => {
-                                const endStatus = getEndDateStatus(task)
-                                if (!endStatus) return null
-                                return (
-                                  <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium flex items-center gap-1 shrink-0 ${endStatus.color}`}>
-                                    <span className="hidden sm:inline">{endStatus.icon}</span> {endStatus.text}
-                                  </span>
-                                )
-                              })()}
+                              {endStatus && (
+                                <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium flex items-center gap-1 shrink-0 ${endStatus.color}`}>
+                                  <span className="hidden sm:inline">{endStatus.icon}</span> {endStatus.text}
+                                </span>
+                              )}
                             </div>
                             {task.description && (
-                              <p className={`text-xs sm:text-sm mt-1 break-words line-clamp-2 ${isCompleted ? 'text-gray-400' : 'text-gray-600'}`}>
+                              <p className={`text-xs sm:text-sm mt-1 break-words line-clamp-2 ${
+                                isCompleted ? 'text-gray-400' : 'text-gray-600'
+                              }`}>
                                 {task.description}
                               </p>
                             )}
@@ -779,27 +502,17 @@ const getTasksForToday = () => {
                             </>
                           )}
 
-                          {isCompleted && (
-                            <div className="flex flex-col items-end gap-1">
-                              {task.completedBy && (
-                                <span className="text-xs text-gray-500">
-                                  ✓ by {task.completedBy}
-                                </span>
-                              )}
-                              {/* Only show undo if current user completed it OR if parent viewing */}
-                              {(isParent || !task.assignedTo || session?.user?.name === task.completedBy) && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleUndoTask(task.id, task.title)
-                                  }}
-                                  className="text-gray-500 hover:text-gray-700 text-xs sm:text-sm underline"
-                                  title="Undo"
-                                >
-                                  Undo
-                                </button>
-                              )}
-                            </div>
+                          {isCompleted && task.completedBy === userName && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleUndoTask(task.id, task.title)
+                              }}
+                              className="text-gray-500 hover:text-gray-700 text-xs sm:text-sm underline"
+                              title="Undo"
+                            >
+                              Undo
+                            </button>
                           )}
                         </div>
                       </div>
@@ -815,83 +528,15 @@ const getTasksForToday = () => {
               <div className="text-gray-400 mb-4">
                 <CheckCircle size={48} className="mx-auto" />
               </div>
-              <h3 className="text-base sm:text-lg font-medium text-gray-800 mb-2">No tasks for today!</h3>
+              <h3 className="text-base sm:text-lg font-medium text-gray-800 mb-2">
+                No tasks for today!
+              </h3>
               <p className="text-sm sm:text-base text-gray-600">
-                {isParent ? 'Create some tasks to get started.' : 'Enjoy your free day!'}
+                Enjoy your free day! 🎉
               </p>
             </div>
           )}
         </div>
-
-        {/* Quick Actions for Parents - MOBILE RESPONSIVE */}
-        {isParent && (
-          <div className="mt-6 sm:mt-8 bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <button 
-                onClick={() => setShowFamilyManager(true)}
-                className="p-3 sm:p-4 text-left rounded-lg border border-gray-200 hover:border-blue-300 transition-colors"
-              >
-                <h3 className="font-medium text-gray-800 text-sm sm:text-base">Manage Family</h3>
-                <p className="text-xs sm:text-sm text-gray-600 mt-1">Invite family members and manage accounts</p>
-              </button>
-              
-              <button 
-                onClick={() => setShowTaskManager(true)}
-                className="p-3 sm:p-4 text-left rounded-lg border border-gray-200 hover:border-purple-300 transition-colors"
-              >
-                <h3 className="font-medium text-gray-800 text-sm sm:text-base">Manage Tasks</h3>
-                <p className="text-xs sm:text-sm text-gray-600 mt-1">Add, edit, or remove family tasks</p>
-              </button>
-              
-              <button 
-                onClick={() => setShowRewardManager(true)}
-                className="p-3 sm:p-4 text-left rounded-lg border border-gray-200 hover:border-purple-300 transition-colors"
-              >
-                <h3 className="font-medium text-gray-800 text-sm sm:text-base">Manage Rewards</h3>
-                <p className="text-xs sm:text-sm text-gray-600 mt-1">Create and manage family rewards</p>
-              </button>
-              
-              <Link
-                href="/manage-completions"
-                className="p-3 sm:p-4 text-left rounded-lg border border-gray-200 hover:border-red-300 transition-colors block"
-              >
-                <h3 className="font-medium text-gray-800 text-sm sm:text-base">Manage Completions</h3>
-                <p className="text-xs sm:text-sm text-gray-600 mt-1">View and delete task completion history</p>
-              </Link>
-              <button
-                onClick={() => setShowHabitManager(true)}
-                className="p-4 text-left rounded-lg border border-gray-200 hover:border-teal-300 transition-colors"
-              >
-                <h3 className="font-medium text-gray-800">Manage Habits</h3>
-                <p className="text-sm text-gray-600 mt-1">Track reading, exercise, and healthy habits</p>
-              </button>
-
-              <button
-                onClick={() => setShowWeeklyView(true)}
-                className="p-4 text-left rounded-lg border border-gray-200 hover:border-green-300 transition-colors"
-              >
-                <h3 className="font-medium text-gray-800">Weekly View</h3>
-                <p className="text-sm text-gray-600 mt-1">View children&apos;s progress by week</p>
-              </button>
-
-              <Link
-                href="/reports"
-                className="p-3 sm:p-4 text-left rounded-lg border border-gray-200 hover:border-green-300 transition-colors block"
-              >
-                <h3 className="font-medium text-gray-800 text-sm sm:text-base">View Reports</h3>
-                <p className="text-xs sm:text-sm text-gray-600 mt-1">Weekly progress and analytics</p>
-              </Link>
-              <Link
-               href="/parent-dashboard"
-               className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-              >
-              <Users size={18} />
-              Parent Dashboard
-              </Link>    
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )
