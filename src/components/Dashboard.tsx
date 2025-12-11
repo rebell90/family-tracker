@@ -271,15 +271,45 @@ export default function Dashboard() {
   const currentPeriod = getCurrentPeriod()
 
   // ============================================================================
-  // MODALS
+  // MODALS / FULL-PAGE VIEWS
   // ============================================================================
 
   if (showRewardManager) {
-    return <RewardManager onClose={() => setShowRewardManager(false)} />
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 p-4 sm:p-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-3xl font-bold text-gray-800">Reward Store</h1>
+            <button
+              onClick={() => setShowRewardManager(false)}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              Back to Dashboard
+            </button>
+          </div>
+          <RewardManager />
+        </div>
+      </div>
+    )
   }
 
   if (showHabitTracker) {
-    return <HabitTracker onClose={() => setShowHabitTracker(false)} />
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 p-4 sm:p-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-3xl font-bold text-gray-800">Habit Tracker</h1>
+            <button
+              onClick={() => setShowHabitTracker(false)}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              Back to Dashboard
+            </button>
+          </div>
+          <HabitTracker />
+        </div>
+      </div>
+    )
   }
 
   // ============================================================================
