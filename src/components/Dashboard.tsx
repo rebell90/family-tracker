@@ -22,6 +22,7 @@ interface Task {
   skippedToday?: boolean
   timePeriod?: string
   isRecurring: boolean
+  daysOfWeek: string[]
   category?: string
   recurringEndDate?: string | null
   assignedTo?: {
