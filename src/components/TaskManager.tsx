@@ -130,9 +130,21 @@ export default function TaskManager() {
     e.preventDefault()
     setError('')
     
+    // 🔍 DEBUG LOGGING - COMMIT 1 FIX
+    console.log('📝 ===== FORM SUBMISSION DEBUG =====')
+    console.log('📝 SUBMITTING FORM DATA:', formData)
+    console.log('⏰ TIME PERIOD:', formData.timePeriod)
+    console.log('👤 ASSIGNED TO:', formData.assignedToId || 'NOT ASSIGNED (EVERYONE)')
+    console.log('📅 START DATE:', formData.startDate)
+    console.log('🔁 IS RECURRING:', formData.isRecurring)
+    if (formData.isRecurring) {
+      console.log('📆 DAYS OF WEEK:', formData.daysOfWeek)
+      console.log('🏁 HAS END DATE:', formData.hasEndDate)
+      console.log('🏁 END DATE:', formData.recurringEndDate)
+    }
+    console.log('===================================')
+    
     try {
-      console.log('Submitting form data:', formData)
-      
       const url = editingTask ? `/api/tasks/${editingTask}` : '/api/tasks'
       const method = editingTask ? 'PUT' : 'POST'
       
@@ -143,6 +155,8 @@ export default function TaskManager() {
           : null
       }
       
+      console.log('📤 SENDING TO API:', submitData)
+      
       const response = await fetch(url, {
         method,
         headers: {
@@ -151,11 +165,13 @@ export default function TaskManager() {
         body: JSON.stringify(submitData),
       })
 
-      console.log('Response status:', response.status)
+      console.log('📥 Response status:', response.status)
       
       if (response.ok) {
         const responseData = await response.json()
-        console.log('Success response:', responseData)
+        console.log('✅ SUCCESS RESPONSE:', responseData)
+        console.log('✅ TASK SAVED WITH TIME PERIOD:', responseData.task?.timePeriod)
+        console.log('✅ TASK SAVED WITH ASSIGNED TO:', responseData.task?.assignedToId || 'EVERYONE')
         await fetchTasks()
         resetForm()
         setError('')
@@ -167,16 +183,16 @@ export default function TaskManager() {
           console.error('Failed to parse error response:', parseError)
           errorData = { error: 'Unknown server error' }
         }
-        console.error('API Error:', response.status, response.statusText, errorData)
+        console.error('❌ API Error:', response.status, response.statusText, errorData)
         setError(errorData.error || `Failed to save task (${response.status}: ${response.statusText})`)
       }
     } catch (error) {
-      console.error('Network error:', error)
+      console.error('❌ Network error:', error)
       setError('Network error occurred. Please try again.')
     }
   }
 
-const initiateDelete = (task: Task) => {
+  const initiateDelete = (task: Task) => {
     setTaskToDelete(task)
     setDeleteModalOpen(true)
   }
@@ -238,8 +254,8 @@ const initiateDelete = (task: Task) => {
       hasEndDate: !!task.recurringEndDate,
       recurringEndDate: task.recurringEndDate ? task.recurringEndDate.split('T')[0] : '',
       startDate: task.startDate 
-      ? new Date(task.startDate).toISOString().split('T')[0]
-      : new Date().toISOString().split('T')[0],
+        ? new Date(task.startDate).toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0],
     })
     console.log('Form data set, showing form')
     setShowAddForm(true)
@@ -330,13 +346,13 @@ const initiateDelete = (task: Task) => {
       </div>
 
       {/* Add/Edit Form - NOW IN MODAL */}
-      {showAddForm && (<Modal
-        isOpen={showAddForm}
-        onClose={resetForm}
-        title={editingTask ? 'Edit Task' : 'Add New Task'}
-        size="lg"
-      >
-          
+      {showAddForm && (
+        <Modal
+          isOpen={showAddForm}
+          onClose={resetForm}
+          title={editingTask ? 'Edit Task' : 'Add New Task'}
+          size="lg"
+        >
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-3 sm:px-4 py-2 sm:py-3 rounded-lg mb-4 text-sm">
               <strong>Error:</strong> {error}
@@ -395,20 +411,26 @@ const initiateDelete = (task: Task) => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Assign to
+                  Assign to Child *
                 </label>
                 <select
                   value={formData.assignedToId}
                   onChange={(e) => setFormData(prev => ({ ...prev, assignedToId: e.target.value }))}
+                  required
                   className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white text-base"
                 >
-                  <option value="">Everyone</option>
+                  <option value="">Select a child...</option>
                   {children.map(child => (
                     <option key={child.id} value={child.id}>
                       {child.name}
                     </option>
                   ))}
                 </select>
+                {children.length === 0 && (
+                  <p className="text-xs sm:text-sm text-orange-600 mt-1">
+                    ⚠️ No children in family yet. Add children in Family Manager first.
+                  </p>
+                )}
               </div>
 
               <div>
@@ -432,7 +454,7 @@ const initiateDelete = (task: Task) => {
                 Task Schedule
               </h4>
 
-              {/* Time Period - MOBILE RESPONSIVE: 2 columns on mobile, 4 on desktop */}
+              {/* Time Period - COMMIT 1 FIX: Better visual feedback + debug logging */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   When should this task be done?
@@ -442,11 +464,18 @@ const initiateDelete = (task: Task) => {
                     <button
                       key={key}
                       type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, timePeriod: key }))}
-                      className={`p-2 sm:p-3 text-xs sm:text-sm rounded-lg border-2 transition-colors ${
+                      onClick={() => {
+                        console.log('⏰ TIME PERIOD BUTTON CLICKED:', key)
+                        setFormData(prev => {
+                          const newData = { ...prev, timePeriod: key }
+                          console.log('⏰ NEW FORM DATA TIME PERIOD:', newData.timePeriod)
+                          return newData
+                        })
+                      }}
+                      className={`p-2 sm:p-3 text-xs sm:text-sm rounded-lg border-2 transition-all ${
                         formData.timePeriod === key
-                          ? 'border-purple-500 bg-purple-50 text-purple-700'
-                          : 'border-gray-200 bg-white text-gray-600 hover:border-purple-300'
+                          ? 'border-purple-500 bg-purple-50 text-purple-700 font-semibold shadow-sm'
+                          : 'border-gray-200 bg-white text-gray-600 hover:border-purple-300 hover:bg-purple-50'
                       }`}
                     >
                       <div className="text-base sm:text-lg mb-1">{period.icon}</div>
@@ -454,6 +483,9 @@ const initiateDelete = (task: Task) => {
                     </button>
                   ))}
                 </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Currently selected: <span className="font-semibold text-purple-600">{formData.timePeriod}</span>
+                </p>
               </div>
 
               {/* Recurring Toggle */}
@@ -505,25 +537,27 @@ const initiateDelete = (task: Task) => {
                   )}
                 </div>
               )}
-                {/* Start Date Selection - ADD THE CONDITIONAL HERE */}
-            {formData.isRecurring && (
-              <div>
-                <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-2">
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  id="startDate"
-                  value={formData.startDate}
-                  onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
-                  min={editingTask ? undefined : new Date().toISOString().split('T')[0]}  // ✅ Only restrict on create
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  📅 Task will only appear on/after this date
-                </p>
-              </div>
-            )}
+
+              {/* Start Date Selection */}
+              {formData.isRecurring && (
+                <div>
+                  <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-2">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    id="startDate"
+                    value={formData.startDate}
+                    onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
+                    min={editingTask ? undefined : new Date().toISOString().split('T')[0]}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    📅 Task will only appear on/after this date
+                  </p>
+                </div>
+              )}
+
               {/* End Date Section - MOBILE RESPONSIVE */}
               {formData.isRecurring && (
                 <div className="space-y-3 pt-3 border-t border-gray-200">
@@ -576,7 +610,8 @@ const initiateDelete = (task: Task) => {
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
               <button
                 type="submit"
-                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors"
+                disabled={children.length === 0 || !formData.assignedToId}
+                className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors"
               >
                 <Save size={16} />
                 {editingTask ? 'Update Task' : 'Create Task'}
@@ -696,6 +731,7 @@ const initiateDelete = (task: Task) => {
           </div>
         )}
       </div>
+
       {/* Delete Task Modal */}
       <DeleteTaskModal
         isOpen={deleteModalOpen}
