@@ -132,7 +132,7 @@ export default function ParentDashboard() {
       fetchStatsForChild()
       fetchOverdueForChild()
     }
-  }, [selectedChildId])
+  }, [selectedChildId,children.length])
 
   const fetchChildren = async (): Promise<void> => {
     try {
