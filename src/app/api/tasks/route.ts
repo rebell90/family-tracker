@@ -1,5 +1,6 @@
 // src/app/api/tasks/route.ts
 // FULLY FIXED: Returns completedToday, completedAt, completedBy, AND skippedToday
+// PLUS: Fixed timePeriod and recurringEndDate handling with debug logging
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -144,11 +145,15 @@ export async function GET(request: NextRequest) {
 
 // POST /api/tasks - Create a new task
 // NOW WITH AUTOMATIC NOTIFICATIONS! 🔔
+// ✅ COMMIT 1 FIX: Added debug logging and proper timePeriod + recurringEndDate handling
 export async function POST(request: NextRequest) {
   try {
+    console.log('🚀 POST /api/tasks - Starting request')
+    
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
+      console.log('❌ No session found')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -162,6 +167,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (!user?.familyId) {
+      console.log('❌ User not in family')
       return NextResponse.json(
         { error: 'You must be part of a family to create tasks' },
         { status: 400 }
@@ -169,6 +175,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (user.role !== 'PARENT') {
+      console.log('❌ User is not a parent')
       return NextResponse.json(
         { error: 'Only parents can create tasks' },
         { status: 403 }
@@ -176,6 +183,13 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
+    console.log('📦 Request body received:', body)
+    
+    // 🔍 COMMIT 1 FIX: Debug logging for timePeriod
+    console.log('⏰ RECEIVED TIME PERIOD:', body.timePeriod)
+    console.log('⏰ TIME PERIOD TYPE:', typeof body.timePeriod)
+    console.log('⏰ TIME PERIOD IS TRUTHY:', !!body.timePeriod)
+    
     const { 
       title, 
       description, 
@@ -184,8 +198,13 @@ export async function POST(request: NextRequest) {
       assignedToId,
       isRecurring,
       daysOfWeek,
+      timePeriod,           // ✅ COMMIT 1 FIX: Added this field
       startDate,
+      recurringEndDate,     // ✅ COMMIT 1 FIX: Added this field
     } = body
+
+    console.log('📝 Destructured timePeriod:', timePeriod)
+    console.log('📝 Destructured recurringEndDate:', recurringEndDate)
 
     if (!title) {
       return NextResponse.json(
@@ -194,20 +213,30 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 🔍 COMMIT 1 FIX: Log what we're about to save
+    const taskData = {
+      title,
+      description: description || null,
+      points: points || 10,
+      category: category || null,
+      assignedToId: assignedToId || null,
+      createdById: session.user.id,
+      familyId: user.familyId,
+      isRecurring: isRecurring || false,
+      daysOfWeek: daysOfWeek || null,
+      timePeriod: timePeriod || 'ANYTIME',  // ✅ COMMIT 1 FIX: Now extracted from body
+      startDate: startDate ? new Date(startDate) : new Date(),
+      recurringEndDate: recurringEndDate ? new Date(recurringEndDate) : null,  // ✅ COMMIT 1 FIX: Now extracted from body
+    }
+
+    console.log('💾 ABOUT TO SAVE TO DATABASE:', taskData)
+    console.log('💾 SPECIFICALLY timePeriod:', taskData.timePeriod)
+    console.log('💾 SPECIFICALLY startDate:', taskData.startDate)
+    console.log('💾 SPECIFICALLY recurringEndDate:', taskData.recurringEndDate)
+
     // Create the task
     const task = await prisma.task.create({
-      data: {
-        title,
-        description: description || null,
-        points: points || 10,
-        category: category || null,
-        assignedToId: assignedToId || null,
-        createdById: session.user.id,
-        familyId: user.familyId,
-        isRecurring: isRecurring || false,
-        daysOfWeek: daysOfWeek || null,
-        startDate: startDate ? new Date(startDate) : new Date(), 
-      },
+      data: taskData,
       include: {
         assignedTo: {
           select: {
@@ -218,6 +247,11 @@ export async function POST(request: NextRequest) {
         },
       },
     })
+
+    console.log('✅ Task created successfully:', task.id)
+    console.log('✅ SAVED TIMEPERIOD:', task.timePeriod)
+    console.log('✅ SAVED STARTDATE:', task.startDate)
+    console.log('✅ SAVED RECURRINGENDDATE:', task.recurringEndDate)
 
     // 🔔 NEW: Send notification if task is assigned to someone
     if (task.assignedToId && task.assignedTo) {
@@ -238,7 +272,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ task }, { status: 201 })
   } catch (error) {
-    console.error('Error creating task:', error)
+    console.error('💥 Error creating task:', error)
     return NextResponse.json(
       { error: 'Failed to create task' },
       { status: 500 }
@@ -361,8 +395,11 @@ export async function DELETE(request: NextRequest) {
 }
 
 // PATCH /api/tasks - Update a task
+// ✅ COMMIT 1 FIX: Added debug logging and proper timePeriod + recurringEndDate handling
 export async function PATCH(request: NextRequest) {
   try {
+    console.log('🔄 PATCH /api/tasks - Starting update request')
+    
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
@@ -375,6 +412,9 @@ export async function PATCH(request: NextRequest) {
     })
 
     const body = await request.json()
+    console.log('📦 Update request body:', body)
+    console.log('⏰ RECEIVED TIME PERIOD:', body.timePeriod)
+    
     const { 
       taskId, 
       title, 
@@ -384,7 +424,13 @@ export async function PATCH(request: NextRequest) {
       assignedToId,
       isRecurring,
       daysOfWeek,
+      timePeriod,           // ✅ COMMIT 1 FIX: Added this field
+      startDate,
+      recurringEndDate,     // ✅ COMMIT 1 FIX: Added this field
     } = body
+
+    console.log('📝 Destructured timePeriod:', timePeriod)
+    console.log('📝 Destructured recurringEndDate:', recurringEndDate)
 
     if (!taskId) {
       return NextResponse.json(
@@ -426,6 +472,9 @@ export async function PATCH(request: NextRequest) {
         assignedToId: assignedToId !== undefined ? assignedToId : existingTask.assignedToId,
         isRecurring: isRecurring !== undefined ? isRecurring : existingTask.isRecurring,
         daysOfWeek: daysOfWeek !== undefined ? daysOfWeek : existingTask.daysOfWeek,
+        timePeriod: timePeriod !== undefined ? timePeriod : existingTask.timePeriod,  // ✅ COMMIT 1 FIX: Now properly handled
+        startDate: startDate !== undefined ? new Date(startDate) : existingTask.startDate,
+        recurringEndDate: recurringEndDate !== undefined ? (recurringEndDate ? new Date(recurringEndDate) : null) : existingTask.recurringEndDate,  // ✅ COMMIT 1 FIX: Now properly handled
       },
       include: {
         assignedTo: {
@@ -437,6 +486,10 @@ export async function PATCH(request: NextRequest) {
         },
       },
     })
+
+    console.log('✅ Task updated successfully:', updatedTask.id)
+    console.log('✅ UPDATED TIMEPERIOD:', updatedTask.timePeriod)
+    console.log('✅ UPDATED RECURRINGENDDATE:', updatedTask.recurringEndDate)
 
     // 🔔 NEW: Send notification if task assignment changed
     if (assignmentChanged && updatedTask.assignedToId && updatedTask.assignedTo) {
@@ -456,7 +509,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ task: updatedTask })
   } catch (error) {
-    console.error('Error updating task:', error)
+    console.error('💥 Error updating task:', error)
     return NextResponse.json(
       { error: 'Failed to update task' },
       { status: 500 }
