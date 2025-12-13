@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     // NEW: For each reward, add info about pending redemptions (for parent view)
     const rewardsWithPendingInfo = availableRewards.map(reward => ({
       ...reward,
-      pendingRedemptions: reward.redemptions.filter(r => !r.approved)
+      pendingRedemptions: reward.redemptions.filter(r => !r.approvedBy)
     }))
 
     return NextResponse.json({ rewards: rewardsWithPendingInfo })

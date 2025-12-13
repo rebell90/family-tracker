@@ -15,6 +15,7 @@ interface Reward {
     name: string;
   };
   redemptions: Redemption[];
+  pendingRedemptions?: Redemption[];
 }
 
 interface Redemption {
@@ -43,6 +44,7 @@ export default function RewardManager() {
   })
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+
 
   const user = session?.user as { name?: string; role?: string } | undefined
   const isParent = user?.role === 'PARENT'
@@ -219,7 +221,7 @@ const handleApproval = async (redemptionId: string, approve: boolean) => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ redemptionId, approved: approve }),  // ✅ Fixed!
+      body: JSON.stringify({ redemptionId, approved: approve }),
     })
 
     const data = await response.json()
@@ -489,32 +491,36 @@ const handleApproval = async (redemptionId: string, approve: boolean) => {
             )}
 
             {/* Pending Redemptions (Parents only) - MOBILE RESPONSIVE */}
-            {isParent && reward.redemptions.length > 0 && (
-              <div className="mb-4 p-2.5 sm:p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                <p className="text-xs sm:text-sm font-medium text-orange-800 mb-2">
-                  Pending Requests ({reward.redemptions.length})
+            {isParent && reward.pendingRedemptions && reward.pendingRedemptions.length > 0 && (
+              <div className="mb-4 p-4 bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-300 rounded-lg">
+                <p className="text-sm font-bold text-orange-900 mb-3">
+                  ⏳ Pending Approval ({reward.pendingRedemptions.length})
                 </p>
-                {reward.redemptions.map((redemption) => (
-                  <div key={redemption.id} className="flex items-center justify-between text-xs sm:text-sm mb-1 last:mb-0">
-                    <span className="text-orange-700 truncate mr-2">{redemption.user.name}</span>
-                    <div className="flex gap-1 shrink-0">
-                      <button 
-                        onClick={() => handleApproval(redemption.id, true)}
-                        className="text-green-600 hover:text-green-700 p-1"
-                        aria-label="Approve"
-                      >
-                        <Check size={16} />
-                      </button>
-                      <button 
-                        onClick={() => handleApproval(redemption.id, false)}
-                        className="text-red-600 hover:text-red-700 p-1"
-                        aria-label="Deny"
-                      >
-                        <X size={16} />
-                      </button>
+                <div className="space-y-2">
+                  {reward.pendingRedemptions.map((redemption) => (
+                    <div key={redemption.id} className="flex items-center justify-between bg-white p-2 rounded-md shadow-sm">
+                      <span className="text-sm font-medium text-gray-800">
+                        {redemption.user.name}
+                      </span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleApproval(redemption.id, true)}
+                          className="flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-md text-xs font-medium transition-all hover:scale-105 shadow-sm"
+                        >
+                          <Check size={14} />
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleApproval(redemption.id, false)}
+                          className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-md text-xs font-medium transition-all hover:scale-105 shadow-sm"
+                        >
+                          <X size={14} />
+                          Deny
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
 
