@@ -103,16 +103,18 @@ export async function notifyRewardDenied({
   childId,
   rewardTitle,
   approverName,
+  points,  // ✅ ADD THIS PARAMETER
 }: {
   childId: string
   rewardTitle: string
   approverName: string
+  points: number  // ✅ ADD THIS TYPE
 }) {
   return createAndSendNotification({
     userId: childId,
     type: NotificationType.REWARD_DENIED,
     title: 'Reward Not Approved',
-    message: `${approverName} did not approve your "${rewardTitle}" reward. Points have been refunded.`,
+    message: `${approverName} did not approve your "${rewardTitle}" reward. Your ${points} points have been refunded.`,  // ✅ UPDATED MESSAGE
   })
 }
 
@@ -127,7 +129,8 @@ export async function notifyReminder({
   title: string
   message: string
   taskId?: string
-}) {
+})
+ {
   return createAndSendNotification({
     userId,
     type: NotificationType.REMINDER,
@@ -135,4 +138,59 @@ export async function notifyReminder({
     message,
     taskId,
   })
+}
+
+
+// Notify child that they requested a reward
+export async function notifyRewardRequested({
+  childId,
+  rewardTitle,
+  points,
+}: {
+  childId: string
+  rewardTitle: string
+  points: number
+}) {
+  return createAndSendNotification({
+    userId: childId,
+    type: NotificationType.REWARD_REQUESTED,
+    title: '🎁 Reward Requested',
+    message: `You requested "${rewardTitle}" for ${points} points. Waiting for parent approval.`,
+  })
+}
+
+// Notify parents when a child requests a reward
+export async function notifyParentsOfRewardRequest({
+  familyId,
+  childName,
+  rewardTitle,
+  points,
+}: {
+  familyId: string
+  childName: string
+  rewardTitle: string
+  points: number
+}) {
+  // Get all parents in the family
+  const parents = await prisma.user.findMany({
+    where: {
+      familyId,
+      role: 'PARENT'
+    },
+    select: { id: true }
+  })
+
+  // Notify each parent
+  const notifications = []
+  for (const parent of parents) {
+    const notification = await createAndSendNotification({
+      userId: parent.id,
+      type: NotificationType.REWARD_REQUESTED,
+      title: '🎁 New Reward Request',
+      message: `${childName} wants to redeem "${rewardTitle}" (${points} points)`,
+    })
+    notifications.push(notification)
+  }
+
+  return notifications
 }

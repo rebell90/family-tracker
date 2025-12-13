@@ -294,6 +294,9 @@ model Notification {
   taskId    String?           // Optional link to a task
   task      Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   
+  rewardId       String?
+  redemptionId   String?
+  
   read      Boolean   @default(false)
   createdAt DateTime  @default(now())
   
@@ -305,6 +308,7 @@ enum NotificationType {
   TASK_ASSIGNED
   TASK_COMPLETED
   TASK_DUE_SOON
+  REWARD_REQUESTED 
   REWARD_APPROVED
   REWARD_DENIED
   REMINDER

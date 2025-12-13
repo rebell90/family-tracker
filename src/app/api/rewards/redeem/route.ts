@@ -1,7 +1,11 @@
+// src/app/api/rewards/redeem/route.ts
+// WITH NOTIFICATIONS ADDED - Notifies parents when child requests a reward
+
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { notifyRewardRequested, notifyParentsOfRewardRequest } from '@/lib/notifications'
 
 interface AuthSession {
   user: {
@@ -15,6 +19,8 @@ interface AuthSession {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🎁 POST /api/rewards/redeem - Starting reward redemption')
+    
     const session = await getServerSession(authOptions) as AuthSession | null
     
     if (!session?.user || !('id' in session.user)) {
@@ -22,6 +28,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { rewardId } = await request.json()
+    console.log('📦 Redeeming reward:', rewardId)
 
     // Get reward and user info
     const reward = await prisma.reward.findUnique({
@@ -42,6 +49,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
+    console.log('👤 User:', user.name, 'Points:', user.userPoints?.currentPoints)
+
     // Check if user has enough points
     const currentPoints = user.userPoints?.currentPoints || 0
     if (currentPoints < reward.pointsRequired) {
@@ -57,14 +66,41 @@ export async function POST(request: NextRequest) {
         userId: user.id
       }
     })
+    console.log('✅ Redemption created:', redemption.id)
 
-    // Deduct points immediately (you could also do this after parent approval)
+    // Deduct points immediately
     await prisma.userPoints.update({
       where: { userId: user.id },
       data: {
         currentPoints: currentPoints - reward.pointsRequired
       }
     })
+    console.log(`💰 Deducted ${reward.pointsRequired} points from ${user.name}`)
+
+    // 🔔 Notify child that request was submitted
+    try {
+      await notifyRewardRequested({
+        childId: user.id,
+        rewardTitle: reward.title,
+        points: reward.pointsRequired
+      })
+      console.log(`✅ Child notified of reward request: ${reward.title}`)
+    } catch (notifError) {
+      console.error('Failed to send child notification:', notifError)
+    }
+
+    // 🔔 Notify parents that child requested a reward
+    try {
+      await notifyParentsOfRewardRequest({
+        familyId: user.familyId!,
+        childName: user.name || 'A child',
+        rewardTitle: reward.title,
+        points: reward.pointsRequired
+      })
+      console.log(`✅ Parents notified of reward request from ${user.name}`)
+    } catch (notifError) {
+      console.error('Failed to send parent notification:', notifError)
+    }
 
     return NextResponse.json({
       success: true,
@@ -74,7 +110,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Redemption error:', error)
+    console.error('💥 Redemption error:', error)
     return NextResponse.json({ error: 'Failed to redeem reward' }, { status: 500 })
   }
 }

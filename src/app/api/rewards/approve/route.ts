@@ -1,6 +1,5 @@
 // src/app/api/rewards/approve/route.ts
-// Works with YOUR exact RewardRedemption schema
-// Fixed: Uses approvedBy (not approvedById)
+// WITH NOTIFICATIONS ADDED
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -12,28 +11,17 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🎁 POST /api/rewards/approve - Starting approval request')
+    
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { 
-        role: true,
-        name: true,
-      },
-    })
-
-    if (user?.role !== 'PARENT') {
-      return NextResponse.json(
-        { error: 'Only parents can approve/deny rewards' },
-        { status: 403 }
-      )
-    }
-
     const body = await request.json()
+    console.log('📦 Request body:', body)
+    
     const { redemptionId, approved } = body
 
     if (!redemptionId || approved === undefined) {
@@ -43,18 +31,37 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Fetch the redemption
+    // Verify user is a parent
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { 
+        role: true,
+        id: true,
+        name: true
+      }
+    })
+
+    console.log('👤 User:', user?.name, 'Role:', user?.role)
+
+    if (user?.role !== 'PARENT') {
+      return NextResponse.json(
+        { error: 'Only parents can approve redemptions' },
+        { status: 403 }
+      )
+    }
+
+    // Get the redemption details
     const redemption = await prisma.rewardRedemption.findUnique({
       where: { id: redemptionId },
-      include: {
+      include: { 
         reward: true,
         user: {
           select: {
             id: true,
-            name: true,
-          },
-        },
-      },
+            name: true
+          }
+        }
+      }
     })
 
     if (!redemption) {
@@ -64,7 +71,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if already processed (if approvedBy is set, it's been processed)
+    console.log('📋 Redemption found:', {
+      id: redemption.id,
+      reward: redemption.reward.title,
+      user: redemption.user.name,
+      points: redemption.reward.pointsRequired
+    })
+
+    // Check if already processed
     if (redemption.approvedBy) {
       return NextResponse.json(
         { error: 'Redemption has already been processed' },
@@ -72,59 +86,82 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Update redemption with approved status
-    const updatedRedemption = await prisma.rewardRedemption.update({
-      where: { id: redemptionId },
-      data: {
-        approved: approved, // Set to true for approved, false for denied
-        approvedBy: session.user.id,
-      },
-    })
+    if (approved) {
+      // ✅ APPROVE
+      console.log('✅ Approving redemption...')
+      
+      await prisma.rewardRedemption.update({
+        where: { id: redemptionId },
+        data: {
+          approved: true,
+          approvedBy: user.id
+        }
+      })
 
-    // If denied, refund the points
-    if (!approved) {
+      // 🔔 Notify child of approval
+      try {
+        await notifyRewardApproved({
+          childId: redemption.userId,
+          rewardTitle: redemption.reward.title,
+          approverName: user.name || 'A parent'
+        })
+        console.log(`✅ Child notified of reward approval: ${redemption.reward.title}`)
+      } catch (notifError) {
+        console.error('Failed to send approval notification:', notifError)
+      }
+
+      console.log('✅ Redemption approved successfully!')
+      return NextResponse.json({ 
+        message: `${redemption.reward.title} approved for ${redemption.user.name}!` 
+      })
+      
+    } else {
+      // ❌ DENY
+      console.log('❌ Denying redemption, refunding points...')
+      
+      // Refund the points
       await prisma.userPoints.update({
         where: { userId: redemption.userId },
         data: {
           currentPoints: {
-            increment: redemption.reward.pointsRequired,
-          },
-        },
+            increment: redemption.reward.pointsRequired
+          }
+        }
       })
-    }
+      console.log(`💰 Refunded ${redemption.reward.pointsRequired} points to ${redemption.user.name}`)
 
-    // 🔔 Send notification to the child
-    try {
-      if (approved) {
-        await notifyRewardApproved({
-          childId: redemption.userId,
-          rewardTitle: redemption.reward.title,
-          approverName: user?.name || 'A parent',
-        })
-        console.log(`✅ Child notified of reward approval: ${redemption.reward.title}`)
-      } else {
+      // Mark as denied (approved=false, approvedBy set)
+      await prisma.rewardRedemption.update({
+        where: { id: redemptionId },
+        data: {
+          approved: false,
+          approvedBy: user.id
+        }
+      })
+
+      // 🔔 Notify child of denial
+      try {
         await notifyRewardDenied({
           childId: redemption.userId,
           rewardTitle: redemption.reward.title,
-          approverName: user?.name || 'A parent',
+          points: redemption.reward.pointsRequired,
+          approverName: user.name || 'A parent'
         })
         console.log(`✅ Child notified of reward denial: ${redemption.reward.title}`)
+      } catch (notifError) {
+        console.error('Failed to send denial notification:', notifError)
       }
-    } catch (notifError) {
-      // Don't fail the whole request if notification fails
-      console.error('Failed to send reward notification:', notifError)
+
+      console.log('🗑️ Redemption denied')
+      return NextResponse.json({ 
+        message: `Request denied. ${redemption.reward.pointsRequired} points refunded to ${redemption.user.name}.` 
+      })
     }
 
-    return NextResponse.json({
-      redemption: updatedRedemption,
-      message: approved 
-        ? 'Reward approved successfully!' 
-        : 'Reward denied and points refunded',
-    })
   } catch (error) {
-    console.error('Error processing reward approval:', error)
+    console.error('💥 Error processing approval:', error)
     return NextResponse.json(
-      { error: 'Failed to process reward approval' },
+      { error: 'Failed to process approval' }, 
       { status: 500 }
     )
   }

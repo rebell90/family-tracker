@@ -1,60 +1,74 @@
+// REDESIGNED src/components/RewardManager.tsx
+// WITH SEPARATE PENDING APPROVALS SECTION AT THE TOP
+//
+// KEY CHANGES:
+// 1. Pending approvals shown in dedicated section at top (parents only)
+// 2. Cleaner reward cards without pending requests cluttering them
+// 3. Better visual hierarchy and organization
+// 4. Fixed parameter name: approved (not approve)
+
 'use client'
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { Gift, Plus, Star, Check, X, Edit2, Trash2, RotateCcw, ShoppingBag } from 'lucide-react'
-import Modal from './Modal'
+import { Gift, Plus, Star, Check, X, Edit2, Trash2, AlertCircle } from 'lucide-react'
 
+// Define interfaces
 interface Reward {
   id: string;
   title: string;
   description?: string;
   pointsRequired: number;
-  isReusable: boolean;
   createdBy: {
     name: string;
   };
   redemptions: Redemption[];
-  pendingRedemptions?: Redemption[];
 }
 
 interface Redemption {
   id: string;
   rewardId: string;
   userId: string;
-  status: 'pending' | 'approved' | 'denied';
-  requestedAt: string;
+  redeemedAt: string;
   user: {
     name: string;
   };
-  reward: Reward;
+  reward: {
+    title: string;
+    pointsRequired: number;
+  };
 }
 
 export default function RewardManager() {
   const { data: session } = useSession()
   const [rewards, setRewards] = useState<Reward[]>([])
-  const [myRedemptions, setMyRedemptions] = useState<Redemption[]>([])
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [editingReward, setEditingReward] = useState<Reward | null>(null)
   const [newReward, setNewReward] = useState({
     title: '',
     description: '',
-    pointsRequired: 10,
-    isReusable: true
+    pointsRequired: 10
   })
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
 
-
   const user = session?.user as { name?: string; role?: string } | undefined
   const isParent = user?.role === 'PARENT'
 
+  // Get all pending redemptions across all rewards
+  const allPendingRedemptions: Redemption[] = rewards.flatMap(reward => 
+    reward.redemptions.map(redemption => ({
+      ...redemption,
+      reward: {
+        title: reward.title,
+        pointsRequired: reward.pointsRequired
+      }
+    }))
+  )
+
   useEffect(() => {
     fetchRewards()
-    if (!isParent) {
-      fetchMyRedemptions()
-    }
-  }, [isParent])
+  }, [])
 
   const fetchRewards = async () => {
     try {
@@ -65,18 +79,6 @@ export default function RewardManager() {
       }
     } catch (error) {
       console.error('Error fetching rewards:', error)
-    }
-  }
-
-  const fetchMyRedemptions = async () => {
-    try {
-      const response = await fetch('/api/rewards/my-redemptions')
-      if (response.ok) {
-        const data = await response.json()
-        setMyRedemptions(data.redemptions || [])
-      }
-    } catch (error) {
-      console.error('Error fetching redemptions:', error)
     }
   }
 
@@ -98,7 +100,7 @@ export default function RewardManager() {
 
       if (response.ok) {
         setMessage('Reward created successfully!')
-        setNewReward({ title: '', description: '', pointsRequired: 10, isReusable: true })
+        setNewReward({ title: '', description: '', pointsRequired: 10 })
         setShowCreateForm(false)
         fetchRewards()
       } else {
@@ -137,8 +139,7 @@ export default function RewardManager() {
     setNewReward({
       title: reward.title,
       description: reward.description || '',
-      pointsRequired: reward.pointsRequired,
-      isReusable: reward.isReusable
+      pointsRequired: reward.pointsRequired
     })
     setShowCreateForm(true)
   }
@@ -163,7 +164,7 @@ export default function RewardManager() {
 
       if (response.ok) {
         setMessage('Reward updated successfully!')
-        setNewReward({ title: '', description: '', pointsRequired: 10, isReusable: true })
+        setNewReward({ title: '', description: '', pointsRequired: 10 })
         setShowCreateForm(false)
         setEditingReward(null)
         fetchRewards()
@@ -180,7 +181,7 @@ export default function RewardManager() {
 
   const cancelEdit = () => {
     setEditingReward(null)
-    setNewReward({ title: '', description: '', pointsRequired: 10, isReusable: true })
+    setNewReward({ title: '', description: '', pointsRequired: 10 })
     setShowCreateForm(false)
   }
 
@@ -200,6 +201,7 @@ export default function RewardManager() {
         setMessage(data.message)
         fetchRewards()
         
+        // Trigger a page refresh to update points display
         setTimeout(() => {
           window.location.reload()
         }, 1500)
@@ -212,74 +214,139 @@ export default function RewardManager() {
     }
   }
 
-const handleApproval = async (redemptionId: string, approve: boolean) => {
-  try {
-    console.log('🔄 Processing approval:', { redemptionId, approve })
-    
-    const response = await fetch('/api/rewards/approve', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ redemptionId, approved: approve }),
-    })
+  const handleApproval = async (redemptionId: string, approve: boolean) => {
+    try {
+      console.log('🔄 Processing approval:', { redemptionId, approve })
+      
+      const response = await fetch('/api/rewards/approve', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ redemptionId, approved: approve }),  // ✅ FIXED: approved (not approve)
+      })
 
-    const data = await response.json()
-    console.log('📥 Approval response:', data)
-    
-    if (response.ok) {
-      setMessage(data.message)
-      fetchRewards()  // Refresh the rewards list
-    } else {
-      setMessage(data.error)
+      const data = await response.json()
+      console.log('📥 Response:', data)
+      
+      if (response.ok) {
+        setMessage(data.message)
+        fetchRewards()  // Refresh to update pending list
+      } else {
+        setMessage(data.error)
+      }
+    } catch (error) {
+      console.error('Error processing approval:', error)
+      setMessage('Failed to process approval')
     }
-  } catch (error) {
-    console.error('Error processing approval:', error)
-    setMessage('Failed to process approval')
   }
-}
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Header - MOBILE RESPONSIVE */}
+    <div className="space-y-6">
+      {/* Header */}
       <div>
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">Reward Store</h2>
-        <p className="text-sm sm:text-base text-gray-600">
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">Reward Store</h2>
+        <p className="text-gray-600">
           {isParent ? 'Manage family rewards and approve redemptions' : 'Redeem your points for awesome rewards!'}
         </p>
       </div>
 
-      {/* Message - MOBILE RESPONSIVE */}
+      {/* Message */}
       {message && (
-        <div className="bg-blue-50 border border-blue-200 text-blue-700 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base">
+        <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg">
           {message}
         </div>
       )}
 
- {/* Create Reward Form (Parents only) - NOW IN MODAL */}
-      {isParent && (
-        <>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <h3 className="text-base sm:text-lg font-semibold text-gray-800">
-                Manage Rewards
+      {/* ===== PENDING APPROVALS SECTION (PARENTS ONLY) ===== */}
+      {isParent && allPendingRedemptions.length > 0 && (
+        <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-400 rounded-xl shadow-lg p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="bg-orange-500 p-2 rounded-lg">
+              <AlertCircle className="text-white" size={24} />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-orange-900">
+                Pending Approvals
               </h3>
-              <button
-                onClick={() => editingReward ? cancelEdit() : setShowCreateForm(true)}
-                className={`px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white`}
-              >
-                <Plus size={16} />
-                Add Reward
-              </button>
+              <p className="text-sm text-orange-700">
+                {allPendingRedemptions.length} reward request{allPendingRedemptions.length !== 1 ? 's' : ''} waiting for your decision
+              </p>
             </div>
           </div>
 
-          <Modal
-            isOpen={showCreateForm}
-            onClose={cancelEdit}
-            title={editingReward ? 'Edit Reward' : 'Create New Reward'}
-            size="md"
-          >
+          <div className="space-y-3">
+            {allPendingRedemptions.map((redemption) => (
+              <div 
+                key={redemption.id} 
+                className="bg-white rounded-lg p-4 shadow-sm border border-orange-200 flex items-center justify-between"
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-bold text-gray-900">{redemption.user.name}</span>
+                    <span className="text-gray-500">wants</span>
+                    <span className="font-semibold text-purple-700">{redemption.reward.title}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Star size={14} className="text-yellow-500" />
+                    <span>{redemption.reward.pointsRequired} points</span>
+                    <span className="text-gray-400">•</span>
+                    <span>{new Date(redemption.redeemedAt).toLocaleDateString()}</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => handleApproval(redemption.id, true)}
+                    className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-105 shadow-md"
+                  >
+                    <Check size={16} />
+                    Approve
+                  </button>
+                  <button 
+                    onClick={() => handleApproval(redemption.id, false)}
+                    className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-105 shadow-md"
+                  >
+                    <X size={16} />
+                    Deny
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Create Reward Form (Parents only) */}
+      {isParent && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">
+              {editingReward ? 'Edit Reward' : 'Create New Reward'}
+            </h3>
+            <button
+              onClick={() => editingReward ? cancelEdit() : setShowCreateForm(!showCreateForm)}
+              className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${
+                showCreateForm 
+                  ? 'bg-gray-500 hover:bg-gray-600 text-white'
+                  : 'bg-purple-600 hover:bg-purple-700 text-white'
+              }`}
+            >
+              {showCreateForm ? (
+                <>
+                  <X size={16} />
+                  Cancel
+                </>
+              ) : (
+                <>
+                  <Plus size={16} />
+                  Add Reward
+                </>
+              )}
+            </button>
+          </div>
+
+          {showCreateForm && (
             <form onSubmit={editingReward ? handleUpdateReward : handleCreateReward} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-1">
@@ -290,7 +357,7 @@ const handleApproval = async (redemptionId: string, approve: boolean) => {
                   required
                   value={newReward.title}
                   onChange={(e) => setNewReward({ ...newReward, title: e.target.value })}
-                  className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white text-base"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white"
                   placeholder="e.g., Choose tonight's movie"
                 />
               </div>
@@ -302,9 +369,9 @@ const handleApproval = async (redemptionId: string, approve: boolean) => {
                 <textarea
                   value={newReward.description}
                   onChange={(e) => setNewReward({ ...newReward, description: e.target.value })}
-                  className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white text-base"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white"
                   rows={2}
-                  placeholder="Additional details..."
+                  placeholder="Additional details about this reward..."
                 />
               </div>
 
@@ -318,217 +385,71 @@ const handleApproval = async (redemptionId: string, approve: boolean) => {
                   min="1"
                   value={newReward.pointsRequired}
                   onChange={(e) => setNewReward({ ...newReward, pointsRequired: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white text-base"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white"
                 />
-              </div>
-
-              {/* Reward Type Selection - MOBILE RESPONSIVE */}
-              <div className="space-y-3">
-                <label className="block text-sm font-medium text-gray-900 mb-3">
-                  Reward Type
-                </label>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Reusable Reward Option */}
-                  <button
-                    type="button"
-                    onClick={() => setNewReward({ ...newReward, isReusable: true })}
-                    className={`p-3 sm:p-4 rounded-lg border-2 transition-all text-left ${
-                      newReward.isReusable
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 bg-white hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-start gap-2 sm:gap-3">
-                      <div className={`p-1.5 sm:p-2 rounded-lg shrink-0 ${
-                        newReward.isReusable ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600'
-                      }`}>
-                        <RotateCcw size={18} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-gray-900 mb-1 text-sm sm:text-base">
-                          Reusable Reward
-                        </div>
-                        <p className="text-xs sm:text-sm text-gray-600">
-                          Can be redeemed multiple times
-                        </p>
-                        <div className="mt-2 text-xs text-gray-500 space-y-0.5">
-                          <div>✓ 30 min iPad time</div>
-                          <div>✓ Choose dinner</div>
-                          <div className="hidden sm:block">✓ Stay up late</div>
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-
-                  {/* One-Time Reward Option */}
-                  <button
-                    type="button"
-                    onClick={() => setNewReward({ ...newReward, isReusable: false })}
-                    className={`p-3 sm:p-4 rounded-lg border-2 transition-all text-left ${
-                      !newReward.isReusable
-                        ? 'border-purple-500 bg-purple-50'
-                        : 'border-gray-200 bg-white hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-start gap-2 sm:gap-3">
-                      <div className={`p-1.5 sm:p-2 rounded-lg shrink-0 ${
-                        !newReward.isReusable ? 'bg-purple-500 text-white' : 'bg-gray-100 text-gray-600'
-                      }`}>
-                        <ShoppingBag size={18} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-gray-900 mb-1 text-sm sm:text-base">
-                          One-Time Reward
-                        </div>
-                        <p className="text-xs sm:text-sm text-gray-600">
-                          Can only be redeemed once
-                        </p>
-                        <div className="mt-2 text-xs text-gray-500 space-y-0.5">
-                          <div>✓ New toy purchase</div>
-                          <div>✓ Trip to theme park</div>
-                          <div className="hidden sm:block">✓ Special birthday gift</div>
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                </div>
-
-                {/* Explanation based on selection */}
-                <div className={`p-2.5 sm:p-3 rounded-lg text-xs sm:text-sm ${
-                  newReward.isReusable 
-                    ? 'bg-blue-50 text-blue-800 border border-blue-200'
-                    : 'bg-purple-50 text-purple-800 border border-purple-200'
-                }`}>
-                  <div className="flex items-start gap-2">
-                    <Gift size={14} className="mt-0.5 flex-shrink-0" />
-                    <div>
-                      {newReward.isReusable ? (
-                        <>
-                          <strong>Routine Reward:</strong> This reward will stay available after being 
-                          redeemed. Great for privileges and experiences.
-                        </>
-                      ) : (
-                        <>
-                          <strong>Wishlist Item:</strong> This reward will disappear after 
-                          redemption. Perfect for physical items or one-time experiences.
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors w-full sm:w-auto"
+                className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors"
               >
                 {loading ? (editingReward ? 'Updating...' : 'Creating...') : (editingReward ? 'Update Reward' : 'Create Reward')}
               </button>
-          </form>
-          </Modal>
-        </>
+            </form>
+          )}
+        </div>
       )}
 
-      {/* Rewards List - MOBILE RESPONSIVE: Single column on mobile */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+      {/* Rewards List */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {rewards.map((reward) => (
-          <div key={reward.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
-            <div className="flex items-start justify-between mb-3 gap-2">
-              <div className="bg-gradient-to-r from-purple-100 to-pink-100 p-2 rounded-lg shrink-0">
-                <Gift className="text-purple-600" size={20} />
+          <div key={reward.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-start justify-between mb-3">
+              <div className="bg-gradient-to-r from-purple-100 to-pink-100 p-2 rounded-lg">
+                <Gift className="text-purple-600" size={24} />
               </div>
-              <div className="flex items-center gap-1 bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs sm:text-sm font-medium shrink-0">
-                <Star size={12} />
+              <div className="flex items-center gap-1 bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-sm font-medium">
+                <Star size={14} />
                 {reward.pointsRequired}
               </div>
             </div>
 
-            <h3 className="font-semibold text-gray-800 mb-2 text-sm sm:text-base break-words">{reward.title}</h3>
+            <h3 className="font-semibold text-gray-800 mb-2">{reward.title}</h3>
             
             {reward.description && (
-              <p className="text-xs sm:text-sm text-gray-600 mb-3 break-words line-clamp-3">{reward.description}</p>
+              <p className="text-sm text-gray-600 mb-4">{reward.description}</p>
             )}
 
-            {/* Reward Type Badge - MOBILE RESPONSIVE */}
-            <div className="mb-3">
-              {reward.isReusable ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-medium">
-                  <RotateCcw size={10} />
-                  Reusable
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-purple-100 text-purple-800 text-xs font-medium">
-                  <ShoppingBag size={10} />
-                  One-Time
-                </span>
-              )}
-            </div>
-
-            <div className="text-xs text-gray-700 mb-4 font-medium truncate">
+            <div className="text-xs text-gray-500 mb-4">
               Created by {reward.createdBy.name}
             </div>
 
-            {/* Edit/Delete buttons for parents - MOBILE RESPONSIVE */}
+            {/* Edit/Delete buttons for parents */}
             {isParent && (
               <div className="flex gap-2 mb-4">
                 <button
                   onClick={() => startEditReward(reward)}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded text-xs sm:text-sm transition-colors"
+                  className="flex items-center gap-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm transition-colors flex-1"
                 >
-                  <Edit2 size={12} />
+                  <Edit2 size={14} />
                   Edit
                 </button>
                 <button
                   onClick={() => handleDeleteReward(reward.id)}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded text-xs sm:text-sm transition-colors"
+                  className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm transition-colors flex-1"
                 >
-                  <Trash2 size={12} />
+                  <Trash2 size={14} />
                   Delete
                 </button>
               </div>
             )}
 
-            {/* Pending Redemptions (Parents only) - MOBILE RESPONSIVE */}
-            {isParent && reward.pendingRedemptions && reward.pendingRedemptions.length > 0 && (
-              <div className="mb-4 p-4 bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-300 rounded-lg">
-                <p className="text-sm font-bold text-orange-900 mb-3">
-                  ⏳ Pending Approval ({reward.pendingRedemptions.length})
-                </p>
-                <div className="space-y-2">
-                  {reward.pendingRedemptions.map((redemption) => (
-                    <div key={redemption.id} className="flex items-center justify-between bg-white p-2 rounded-md shadow-sm">
-                      <span className="text-sm font-medium text-gray-800">
-                        {redemption.user.name}
-                      </span>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleApproval(redemption.id, true)}
-                          className="flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-md text-xs font-medium transition-all hover:scale-105 shadow-sm"
-                        >
-                          <Check size={14} />
-                          Approve
-                        </button>
-                        <button
-                          onClick={() => handleApproval(redemption.id, false)}
-                          className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-md text-xs font-medium transition-all hover:scale-105 shadow-sm"
-                        >
-                          <X size={14} />
-                          Deny
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Redeem Button (Children only) - MOBILE RESPONSIVE */}
+            {/* Redeem Button (Children only) */}
             {!isParent && (
               <button 
                 onClick={() => handleRedeemReward(reward.id)}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors text-sm sm:text-base"
+                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-4 py-2.5 rounded-lg font-medium transition-all hover:scale-105 shadow-md"
               >
                 Redeem for {reward.pointsRequired} points
               </button>
@@ -538,10 +459,10 @@ const handleApproval = async (redemptionId: string, approve: boolean) => {
       </div>
 
       {rewards.length === 0 && (
-        <div className="text-center py-8 sm:py-12 text-gray-500">
-          <Gift size={40} className="sm:w-12 sm:h-12 mx-auto mb-4 text-gray-300" />
-          <p className="text-sm sm:text-base">No rewards available yet.</p>
-          {isParent && <p className="text-xs sm:text-sm">Create your first reward to get started!</p>}
+        <div className="text-center py-12 text-gray-500">
+          <Gift size={48} className="mx-auto mb-4 text-gray-300" />
+          <p>No rewards available yet.</p>
+          {isParent && <p className="text-sm">Create your first reward to get started!</p>}
         </div>
       )}
     </div>
