@@ -210,29 +210,32 @@ export default function RewardManager() {
     }
   }
 
-  const handleApproval = async (redemptionId: string, approve: boolean) => {
-    try {
-      const response = await fetch('/api/rewards/approve', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ redemptionId, approve }),
-      })
+const handleApproval = async (redemptionId: string, approve: boolean) => {
+  try {
+    console.log('🔄 Processing approval:', { redemptionId, approve })
+    
+    const response = await fetch('/api/rewards/approve', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ redemptionId, approved: approve }),  // ✅ Fixed!
+    })
 
-      const data = await response.json()
-      
-      if (response.ok) {
-        setMessage(data.message)
-        fetchRewards()
-      } else {
-        setMessage(data.error)
-      }
-    } catch (error) {
-      console.error('Error processing approval:', error)
-      setMessage('Failed to process approval')
+    const data = await response.json()
+    console.log('📥 Approval response:', data)
+    
+    if (response.ok) {
+      setMessage(data.message)
+      fetchRewards()  // Refresh the rewards list
+    } else {
+      setMessage(data.error)
     }
+  } catch (error) {
+    console.error('Error processing approval:', error)
+    setMessage('Failed to process approval')
   }
+}
 
   return (
     <div className="space-y-4 sm:space-y-6">
