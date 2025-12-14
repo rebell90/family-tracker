@@ -215,32 +215,37 @@ const allPendingRedemptions: Redemption[] = rewards.flatMap(reward =>
     }
   }
 
-  const handleApproval = async (redemptionId: string, approve: boolean) => {
-    try {
-      console.log('🔄 Processing approval:', { redemptionId, approve })
-      
-      const response = await fetch('/api/rewards/approve', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ redemptionId, approved: approve }),  // ✅ FIXED: approved (not approve)
-      })
+const handleApproval = async (redemptionId: string, approve: boolean) => {
+  try {
+    console.log('🔄 Processing approval:', { redemptionId, approve })
+    
+    const response = await fetch('/api/rewards/approve', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ redemptionId, approved: approve }),
+    })
 
-      const data = await response.json()
-      console.log('📥 Response:', data)
+    const data = await response.json()
+    console.log('📥 Response:', data)
+    
+    if (response.ok) {
+      setMessage(data.message)
+      fetchRewards()  // Refresh to update pending list
       
-      if (response.ok) {
-        setMessage(data.message)
-        fetchRewards()  // Refresh to update pending list
-      } else {
-        setMessage(data.error)
-      }
-    } catch (error) {
-      console.error('Error processing approval:', error)
-      setMessage('Failed to process approval')
+      // ✅ ADD THIS: Reload page to refresh points display
+      setTimeout(() => {
+        window.location.reload()
+      }, 1500)  // Wait 1.5 seconds so user sees success message
+    } else {
+      setMessage(data.error)
     }
+  } catch (error) {
+    console.error('Error processing approval:', error)
+    setMessage('Failed to process approval')
   }
+}
 
   return (
     <div className="space-y-6">
