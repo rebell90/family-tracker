@@ -68,6 +68,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 export default function ParentWeeklyView() {
   const [selectedWeek, setSelectedWeek] = useState(new Date())
   const [weeklyData, setWeeklyData] = useState<WeeklyData | null>(null)
+  const [allChildren, setAllChildren] = useState<ChildStats[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedChild, setSelectedChild] = useState<string | 'all'>('all')
 
@@ -109,6 +110,11 @@ export default function ParentWeeklyView() {
       if (response.ok) {
         const data = await response.json()
         setWeeklyData(data)
+        
+        if (selectedChild === 'all' && data.children.length > 0) {
+        setAllChildren(data.children)
+      }
+
       } else {
         console.error('Failed to fetch weekly data')
       }
@@ -256,7 +262,7 @@ export default function ParentWeeklyView() {
       {!loading && weeklyData && (
         <>
           {/* Child Filter */}
-          {weeklyData.children.length > 1 && (
+          {allChildren.length > 1 && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 View Child
@@ -267,7 +273,7 @@ export default function ParentWeeklyView() {
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-800"
               >
                 <option value="all">All Children</option>
-                {weeklyData.children.map(child => (
+                {allChildren.map(child => (
                   <option key={child.childId} value={child.childId}>
                     {child.childName}
                   </option>
