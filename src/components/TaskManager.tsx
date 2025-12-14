@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { Plus, Edit, Trash2, Save, X, User, Clock, Calendar } from 'lucide-react'
+import { Plus, Edit, Trash2, Save, X, User, Clock, Calendar, Filter } from 'lucide-react'
 import { TASK_CATEGORIES, getCategoryInfo, type TaskCategory } from '@/lib/categories'
 import Modal from './Modal'
 import DeleteTaskModal from './DeleteTaskModal'
@@ -63,6 +63,7 @@ export default function TaskManager() {
   const [error, setError] = useState('')
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null)
+  const [selectedChildId, setSelectedChildId] = useState<string>('all') // ✅ NEW: Child filter
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -304,8 +305,13 @@ export default function TaskManager() {
     return { text: `Ends ${end.toLocaleDateString()}`, color: 'bg-blue-100 text-blue-700', icon: '📅' }
   }
 
-  // Group tasks by category
-  const tasksByCategory = tasks.reduce((acc, task) => {
+  // ✅ NEW: Filter tasks by selected child
+  const filteredTasks = selectedChildId === 'all' 
+    ? tasks 
+    : tasks.filter(task => task.assignedTo?.id === selectedChildId)
+
+  // Group tasks by category (using filtered tasks)
+  const tasksByCategory = filteredTasks.reduce((acc, task) => {
     if (!acc[task.category]) {
       acc[task.category] = []
     }
@@ -315,6 +321,10 @@ export default function TaskManager() {
 
   // Get children for assignment
   const children = familyMembers.filter(member => member.role === 'CHILD')
+
+  // ✅ NEW: Get selected child name for display
+  const selectedChild = children.find(child => child.id === selectedChildId)
+  const selectedChildName = selectedChild?.name || 'All Children'
 
   if (!isParent) {
     return (
@@ -343,6 +353,40 @@ export default function TaskManager() {
             Add Task
           </button>
         )}
+      </div>
+
+      {/* ✅ NEW: Filter Section */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="flex items-center gap-2 text-gray-700">
+            <Filter size={18} />
+            <span className="font-medium text-sm">Filter by Child:</span>
+          </div>
+          
+          <div className="flex-1 w-full sm:w-auto">
+            <select
+              value={selectedChildId}
+              onChange={(e) => setSelectedChildId(e.target.value)}
+              className="w-full sm:w-64 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 bg-white"
+            >
+              <option value="all">All Children ({tasks.length} tasks)</option>
+              {children.map(child => {
+                const childTaskCount = tasks.filter(t => t.assignedTo?.id === child.id).length
+                return (
+                  <option key={child.id} value={child.id}>
+                    {child.name} ({childTaskCount} tasks)
+                  </option>
+                )
+              })}
+            </select>
+          </div>
+
+          {selectedChildId !== 'all' && (
+            <div className="text-sm text-gray-600">
+              Showing <span className="font-semibold text-purple-600">{filteredTasks.length}</span> tasks for {selectedChildName}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Add/Edit Form - NOW IN MODAL */}
@@ -725,9 +769,14 @@ export default function TaskManager() {
           )
         })}
 
-        {tasks.length === 0 && (
+        {filteredTasks.length === 0 && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 sm:p-8 text-center">
-            <p className="text-sm sm:text-base text-gray-500">No tasks yet. Create your first task above!</p>
+            <p className="text-sm sm:text-base text-gray-500">
+              {selectedChildId === 'all' 
+                ? 'No tasks yet. Create your first task above!' 
+                : `No tasks assigned to ${selectedChildName} yet.`
+              }
+            </p>
           </div>
         )}
       </div>
