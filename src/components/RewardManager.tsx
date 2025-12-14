@@ -23,6 +23,7 @@ interface Reward {
     name: string;
   };
   redemptions: Redemption[];
+  pendingRedemptions?: Redemption[]; 
 }
 
 interface Redemption {
@@ -56,15 +57,15 @@ export default function RewardManager() {
   const isParent = user?.role === 'PARENT'
 
   // Get all pending redemptions across all rewards
-  const allPendingRedemptions: Redemption[] = rewards.flatMap(reward => 
-    reward.redemptions.map(redemption => ({
-      ...redemption,
-      reward: {
-        title: reward.title,
-        pointsRequired: reward.pointsRequired
-      }
-    }))
-  )
+const allPendingRedemptions: Redemption[] = rewards.flatMap(reward => 
+  (reward.pendingRedemptions || []).map(redemption => ({  // ✅ CHANGED: pendingRedemptions
+    ...redemption,
+    reward: {
+      title: reward.title,
+      pointsRequired: reward.pointsRequired
+    }
+  }))
+)
 
   useEffect(() => {
     fetchRewards()
