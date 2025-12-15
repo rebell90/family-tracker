@@ -55,8 +55,8 @@ export default function ManageCompletions() {
     try {
       const [completionsRes, membersRes, tasksRes] = await Promise.all([
         fetch('/api/tasks/completions'),
-        fetch('/api/family/members'),
-        fetch('/api/tasks')
+        fetch('/api/family'),
+        fetch('/api/tasks/all-children')
       ])
 
       if (completionsRes.ok) {
