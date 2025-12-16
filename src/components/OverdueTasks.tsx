@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'  // ✅ ADDED
-import { AlertTriangle, CheckCircle, X, Calendar, Clock, ChevronDown, ChevronUp, ArrowLeft, Trash2 } from 'lucide-react'
+import { AlertTriangle, CheckCircle, X, Calendar, Clock, ChevronDown, ChevronUp, ArrowLeft, Trash2, User } from 'lucide-react'
 import Link from 'next/link'
 
 interface Task {
@@ -386,6 +386,12 @@ export default function OverdueTasks() {
                                 {task.isRecurring && (
                                   <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full shrink-0">
                                     Recurring
+                                  </span>
+                                )}
+                                {task.assignedTo && (
+                                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full shrink-0 flex items-center gap-1">
+                                    <User size={10} />
+                                    {task.assignedTo.name}
                                   </span>
                                 )}
                                 {missedDateDisplay && (
