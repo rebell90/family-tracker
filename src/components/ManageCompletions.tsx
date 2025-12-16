@@ -170,7 +170,9 @@ export default function ManageCompletions() {
               className="w-full px-3 sm:px-4 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 text-base"
             >
               <option value="all">All Users</option>
-              {familyMembers.map(member => (
+              {familyMembers
+              .filter(member => member.role === 'CHILD') 
+              .map(member => (
                 <option key={member.id} value={member.id}>
                   {member.name} ({member.role})
                 </option>
