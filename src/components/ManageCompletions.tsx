@@ -273,7 +273,7 @@ export default function ManageCompletions() {
                         <button
                           onClick={() => handleDelete(completion.id, completion.task.title)}
                           disabled={deleting === completion.id}
-                          className="self-end sm:self-start shrink-0 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                          className="self-center shrink-0 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                           title="Delete completion and refund points"
                         >
                           {deleting === completion.id ? (

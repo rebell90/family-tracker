@@ -42,6 +42,8 @@ export default function OverdueTasks() {
   const [processingTask, setProcessingTask] = useState<string | null>(null)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['Yesterday', 'Earlier This Week']))
 
+  const [selectedRescheduleDate, setSelectedRescheduleDate] = useState<Record<string, string>>({})
+
   const user = session?.user as { name?: string; role?: string; id?: string } | undefined
   const isParent = user?.role === 'PARENT'
 
@@ -171,32 +173,44 @@ export default function OverdueTasks() {
     }
   }
 
-  const handleRescheduleTask = async (taskId: string, missedDate: string, newDate: string) => {
-    if (!newDate) return
-    
-    const uniqueKey = `${taskId}-${missedDate}`
-    setProcessingTask(uniqueKey)
-    
-    try {
-      await fetch('/api/tasks/skip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          taskId,
-          reason: `Rescheduled from ${new Date(missedDate).toLocaleDateString()} to ${new Date(newDate).toLocaleDateString()}`,
-          skippedAt: missedDate
-        })
-      })
-      
-      await fetchOverdueTasks()
-      alert('Task rescheduled successfully')
-    } catch (error) {
-      console.error('Error rescheduling task:', error)
-      alert('Failed to reschedule task')
-    } finally {
-      setProcessingTask(null)
-    }
+const handleRescheduleTask = async (taskId: string, missedDate: string) => {
+  const uniqueKey = `${taskId}-${missedDate}`
+  const newDate = selectedRescheduleDate[uniqueKey]
+  
+  if (!newDate) {
+    alert('Please select a date first')
+    return
   }
+  
+  setProcessingTask(uniqueKey)
+  
+  try {
+    await fetch('/api/tasks/skip', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        taskId,
+        reason: `Rescheduled from ${new Date(missedDate).toLocaleDateString()} to ${new Date(newDate).toLocaleDateString()}`,
+        skippedAt: missedDate
+      })
+    })
+    
+    // Clear the selected date
+    setSelectedRescheduleDate(prev => {
+      const updated = { ...prev }
+      delete updated[uniqueKey]
+      return updated
+    })
+    
+    await fetchOverdueTasks()
+    alert('Task rescheduled successfully')
+  } catch (error) {
+    console.error('Error rescheduling task:', error)
+    alert('Failed to reschedule task')
+  } finally {
+    setProcessingTask(null)
+  }
+}
 
   const handleDeleteInstance = async (taskId: string, missedDate?: string) => {
     if (!missedDate) {
@@ -446,33 +460,46 @@ export default function OverdueTasks() {
                                 </button>
                               </div>
                               
-                              {/* Reschedule and Delete row */}
-                              <div className="flex gap-2">
-                                <div className="flex-1 min-w-0">
-                                  <label className="text-xs text-gray-500 block mb-1">Reschedule to:</label>
+                              {/* Reschedule Section */}
+                              <div className="space-y-2">
+                                <label className="text-xs text-gray-500 block">Reschedule to:</label>
+                                <div className="flex gap-2">
                                   <input
                                     type="date"
-                                    onChange={(e) => handleRescheduleTask(task.id, task.missedDate || '', e.target.value)}
+                                    value={selectedRescheduleDate[uniqueKey] || ''}
+                                    onChange={(e) => setSelectedRescheduleDate(prev => ({
+                                      ...prev,
+                                      [uniqueKey]: e.target.value
+                                    }))}
                                     disabled={isProcessing}
-                                    className="w-full px-2 sm:px-3 py-1.5 border border-gray-300 rounded-lg text-xs sm:text-sm"
-                                    style={{ color: '#1f2937' }}
+                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                    style={{ color: '#1f2937', fontWeight: '500' }}
                                     min={new Date().toISOString().split('T')[0]}
                                   />
+                                  <button
+                                    onClick={() => handleRescheduleTask(task.id, task.missedDate || '')}
+                                    disabled={isProcessing || !selectedRescheduleDate[uniqueKey]}
+                                    className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+                                  >
+                                    Reschedule
+                                  </button>
                                 </div>
-                                
-                                {isParent && (
-                                  <div className="flex flex-col justify-end">
-                                    <button
-                                      onClick={() => handleDeleteInstance(task.id, task.missedDate)}
-                                      disabled={isProcessing}
-                                      className="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 h-[34px] sm:h-[38px]"
-                                      title="Delete this occurrence (Parent only)"
-                                    >
-                                      <Trash2 size={14} />
-                                    </button>
-                                  </div>
-                                )}
                               </div>
+
+                              {/* Delete Button - Separate Row for Parent */}
+                              {isParent && (
+                                <div className="pt-2 border-t border-gray-200">
+                                  <button
+                                    onClick={() => handleDeleteInstance(task.id, task.missedDate)}
+                                    disabled={isProcessing}
+                                    className="w-full sm:w-auto bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                                    title="Delete this occurrence permanently"
+                                  >
+                                    <Trash2 size={16} />
+                                    <span>Delete Instance</span>
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </div>
                         )

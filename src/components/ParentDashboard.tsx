@@ -795,25 +795,26 @@ const fetchOverdueForChild = async (): Promise<void> => {
                             {task.points} pts
                           </span>
 
-                          {!isCompleted && (
-                            <button
-                              onClick={() => handleCompleteTask(
-                                task.id, 
-                                task.title,
-                                task.assignedTo?.name || 'child'
-                              )}
-                              disabled={completingTask === task.id}
-                              className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors flex items-center gap-2 shrink-0"
-                            >
-                              {completingTask === task.id ? 'Completing...' : (
-                                <>
-                                  <CheckCircle size={16} />
-                                  <span className="hidden sm:inline">Complete</span>
-                                  <span className="sm:hidden">✓</span>
-                                </>
-                              )}
-                            </button>
-                          )}
+                                {!isCompleted && (
+                                    <button
+                                        onClick={() => handleCompleteTask(
+                                            task.id,
+                                            task.title,
+                                            task.assignedTo?.name || 'child'
+                                        )}
+                                        disabled={completingTask === task.id}
+                                        className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 shrink-0 min-w-[110px]"
+                                    >
+                                        {completingTask === task.id ? (
+                                            <span>Completing...</span>
+                                        ) : (
+                                            <>
+                                                <CheckCircle size={18} />
+                                                <span>Complete</span>
+                                            </>
+                                        )}
+                                    </button>
+                                )}
 
                           {isCompleted && task.completedBy && (
                             <div className="flex flex-col items-end gap-1">
