@@ -786,14 +786,13 @@ const fetchOverdueForChild = async (): Promise<void> => {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 justify-end sm:justify-start">
-                          <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium shrink-0 ${
-                            isCompleted
-                              ? 'bg-gray-100 text-gray-500'
-                              : 'bg-yellow-100 text-yellow-700'
-                          }`}>
-                            {task.points} pts
-                          </span>
+                            <div className="flex items-center justify-between gap-3">
+                                <span className={`px-3 py-1.5 rounded-full text-sm font-medium flex-shrink-0 ${isCompleted
+                                        ? 'bg-gray-100 text-gray-500'
+                                        : 'bg-yellow-100 text-yellow-700'
+                                    }`}>
+                                    {task.points} pts
+                                </span>
 
                                 {!isCompleted && (
                                     <button
@@ -803,7 +802,7 @@ const fetchOverdueForChild = async (): Promise<void> => {
                                             task.assignedTo?.name || 'child'
                                         )}
                                         disabled={completingTask === task.id}
-                                        className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 shrink-0 min-w-[110px]"
+                                        className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 flex-shrink-0 min-w-[110px]"
                                     >
                                         {completingTask === task.id ? (
                                             <span>Completing...</span>
@@ -816,24 +815,24 @@ const fetchOverdueForChild = async (): Promise<void> => {
                                     </button>
                                 )}
 
-                          {isCompleted && task.completedBy && (
-                            <div className="flex flex-col items-end gap-1">
-                              <span className="text-xs text-gray-500">
-                                ✓ by {task.completedBy}
-                              </span>
-                              <button
-                                onClick={() => handleUndoTask(
-                                  task.id,
-                                  task.title,
-                                  task.assignedTo?.name || 'child'
+                                {isCompleted && task.completedBy && (
+                                    <div className="flex flex-col items-end gap-1">
+                                        <span className="text-xs text-gray-500">
+                                            ✓ by {task.completedBy}
+                                        </span>
+                                        <button
+                                            onClick={() => handleUndoTask(
+                                                task.id,
+                                                task.title,
+                                                task.assignedTo?.name || 'child'
+                                            )}
+                                            className="text-gray-500 hover:text-gray-700 text-xs sm:text-sm underline"
+                                        >
+                                            Undo
+                                        </button>
+                                    </div>
                                 )}
-                                className="text-gray-500 hover:text-gray-700 text-xs sm:text-sm underline"
-                              >
-                                Undo
-                              </button>
                             </div>
-                          )}
-                        </div>
                       </div>
                     )
                   })}

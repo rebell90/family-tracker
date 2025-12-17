@@ -1,19 +1,10 @@
-// REDESIGNED src/components/RewardManager.tsx
-// WITH SEPARATE PENDING APPROVALS SECTION AT THE TOP
-//
-// KEY CHANGES:
-// 1. Pending approvals shown in dedicated section at top (parents only)
-// 2. Cleaner reward cards without pending requests cluttering them
-// 3. Better visual hierarchy and organization
-// 4. Fixed parameter name: approved (not approve)
-
 'use client'
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { Gift, Plus, Star, Check, X, Edit2, Trash2, AlertCircle } from 'lucide-react'
+import { Gift, Plus, Star, Check, X, Edit2, Trash2 } from 'lucide-react'
 
-// Define interfaces
+// Define interfaces at the top
 interface Reward {
   id: string;
   title: string;
@@ -23,27 +14,25 @@ interface Reward {
     name: string;
   };
   redemptions: Redemption[];
-  pendingRedemptions?: Redemption[]; 
 }
 
 interface Redemption {
   id: string;
   rewardId: string;
   userId: string;
-  redeemedAt: string;
+  status: 'pending' | 'approved' | 'denied';
+  requestedAt: string;
   user: {
     name: string;
   };
-  reward: {
-    title: string;
-    pointsRequired: number;
-  };
+  reward: Reward;
 }
 
 export default function RewardManager() {
   const { data: session } = useSession()
   const [rewards, setRewards] = useState<Reward[]>([])
-  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [myRedemptions, setMyRedemptions] = useState<Redemption[]>([])
+  const [showModal, setShowModal] = useState(false)
   const [editingReward, setEditingReward] = useState<Reward | null>(null)
   const [newReward, setNewReward] = useState({
     title: '',
@@ -56,20 +45,12 @@ export default function RewardManager() {
   const user = session?.user as { name?: string; role?: string } | undefined
   const isParent = user?.role === 'PARENT'
 
-  // Get all pending redemptions across all rewards
-const allPendingRedemptions: Redemption[] = rewards.flatMap(reward => 
-  (reward.pendingRedemptions || []).map(redemption => ({  // ✅ CHANGED: pendingRedemptions
-    ...redemption,
-    reward: {
-      title: reward.title,
-      pointsRequired: reward.pointsRequired
-    }
-  }))
-)
-
   useEffect(() => {
     fetchRewards()
-  }, [])
+    if (!isParent) {
+      fetchMyRedemptions()
+    }
+  }, [isParent])
 
   const fetchRewards = async () => {
     try {
@@ -81,6 +62,40 @@ const allPendingRedemptions: Redemption[] = rewards.flatMap(reward =>
     } catch (error) {
       console.error('Error fetching rewards:', error)
     }
+  }
+
+  const fetchMyRedemptions = async () => {
+    try {
+      const response = await fetch('/api/rewards/my-redemptions')
+      if (response.ok) {
+        const data = await response.json()
+        setMyRedemptions(data.redemptions || [])
+      }
+    } catch (error) {
+      console.error('Error fetching redemptions:', error)
+    }
+  }
+
+  const openModal = (reward?: Reward) => {
+    if (reward) {
+      setEditingReward(reward)
+      setNewReward({
+        title: reward.title,
+        description: reward.description || '',
+        pointsRequired: reward.pointsRequired
+      })
+    } else {
+      setEditingReward(null)
+      setNewReward({ title: '', description: '', pointsRequired: 10 })
+    }
+    setShowModal(true)
+  }
+
+  const closeModal = () => {
+    setShowModal(false)
+    setEditingReward(null)
+    setNewReward({ title: '', description: '', pointsRequired: 10 })
+    setMessage('')
   }
 
   const handleCreateReward = async (e: React.FormEvent) => {
@@ -101,15 +116,47 @@ const allPendingRedemptions: Redemption[] = rewards.flatMap(reward =>
 
       if (response.ok) {
         setMessage('Reward created successfully!')
-        setNewReward({ title: '', description: '', pointsRequired: 10 })
-        setShowCreateForm(false)
         fetchRewards()
+        setTimeout(closeModal, 1000)
       } else {
         setMessage(data.error || 'Failed to create reward')
       }
     } catch (error) {
       console.error('Error creating reward:', error)
       setMessage('Failed to create reward')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleUpdateReward = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingReward) return
+
+    setLoading(true)
+    setMessage('')
+
+    try {
+      const response = await fetch(`/api/rewards/${editingReward.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newReward),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setMessage('Reward updated successfully!')
+        fetchRewards()
+        setTimeout(closeModal, 1000)
+      } else {
+        setMessage(data.error || 'Failed to update reward')
+      }
+    } catch (error) {
+      console.error('Error updating reward:', error)
+      setMessage('Failed to update reward')
     } finally {
       setLoading(false)
     }
@@ -135,57 +182,6 @@ const allPendingRedemptions: Redemption[] = rewards.flatMap(reward =>
     }
   }
 
-  const startEditReward = (reward: Reward) => {
-    setEditingReward(reward)
-    setNewReward({
-      title: reward.title,
-      description: reward.description || '',
-      pointsRequired: reward.pointsRequired
-    })
-    setShowCreateForm(true)
-  }
-
-  const handleUpdateReward = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!editingReward) return
-
-    setLoading(true)
-    setMessage('')
-
-    try {
-      const response = await fetch(`/api/rewards/${editingReward.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newReward),
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        setMessage('Reward updated successfully!')
-        setNewReward({ title: '', description: '', pointsRequired: 10 })
-        setShowCreateForm(false)
-        setEditingReward(null)
-        fetchRewards()
-      } else {
-        setMessage(data.error || 'Failed to update reward')
-      }
-    } catch (error) {
-      console.error('Error updating reward:', error)
-      setMessage('Failed to update reward')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const cancelEdit = () => {
-    setEditingReward(null)
-    setNewReward({ title: '', description: '', pointsRequired: 10 })
-    setShowCreateForm(false)
-  }
-
   const handleRedeemReward = async (rewardId: string) => {
     try {
       const response = await fetch('/api/rewards/redeem', {
@@ -202,7 +198,6 @@ const allPendingRedemptions: Redemption[] = rewards.flatMap(reward =>
         setMessage(data.message)
         fetchRewards()
         
-        // Trigger a page refresh to update points display
         setTimeout(() => {
           window.location.reload()
         }, 1500)
@@ -215,41 +210,32 @@ const allPendingRedemptions: Redemption[] = rewards.flatMap(reward =>
     }
   }
 
-const handleApproval = async (redemptionId: string, approve: boolean) => {
-  try {
-    console.log('🔄 Processing approval:', { redemptionId, approve })
-    
-    const response = await fetch('/api/rewards/approve', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ redemptionId, approved: approve }),
-    })
+  const handleApproval = async (redemptionId: string, approve: boolean) => {
+    try {
+      const response = await fetch('/api/rewards/approve', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ redemptionId, approve }),
+      })
 
-    const data = await response.json()
-    console.log('📥 Response:', data)
-    
-    if (response.ok) {
-      setMessage(data.message)
-      fetchRewards()  // Refresh to update pending list
+      const data = await response.json()
       
-      // ✅ ADD THIS: Reload page to refresh points display
-      setTimeout(() => {
-        window.location.reload()
-      }, 1500)  // Wait 1.5 seconds so user sees success message
-    } else {
-      setMessage(data.error)
+      if (response.ok) {
+        setMessage(data.message)
+        fetchRewards()
+      } else {
+        setMessage(data.error)
+      }
+    } catch (error) {
+      console.error('Error processing approval:', error)
+      setMessage('Failed to process approval')
     }
-  } catch (error) {
-    console.error('Error processing approval:', error)
-    setMessage('Failed to process approval')
   }
-}
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Reward Store</h2>
         <p className="text-gray-600">
@@ -264,96 +250,40 @@ const handleApproval = async (redemptionId: string, approve: boolean) => {
         </div>
       )}
 
-      {/* ===== PENDING APPROVALS SECTION (PARENTS ONLY) ===== */}
-      {isParent && allPendingRedemptions.length > 0 && (
-        <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-400 rounded-xl shadow-lg p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="bg-orange-500 p-2 rounded-lg">
-              <AlertCircle className="text-white" size={24} />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-orange-900">
-                Pending Approvals
-              </h3>
-              <p className="text-sm text-orange-700">
-                {allPendingRedemptions.length} reward request{allPendingRedemptions.length !== 1 ? 's' : ''} waiting for your decision
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {allPendingRedemptions.map((redemption) => (
-              <div 
-                key={redemption.id} 
-                className="bg-white rounded-lg p-4 shadow-sm border border-orange-200 flex items-center justify-between"
-              >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-bold text-gray-900">{redemption.user.name}</span>
-                    <span className="text-gray-500">wants</span>
-                    <span className="font-semibold text-purple-700">{redemption.reward.title}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Star size={14} className="text-yellow-500" />
-                    <span>{redemption.reward.pointsRequired} points</span>
-                    <span className="text-gray-400">•</span>
-                    <span>{new Date(redemption.redeemedAt).toLocaleDateString()}</span>
-                  </div>
-                </div>
-
-                <div className="flex gap-3">
-                  <button 
-                    onClick={() => handleApproval(redemption.id, true)}
-                    className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-105 shadow-md"
-                  >
-                    <Check size={16} />
-                    Approve
-                  </button>
-                  <button 
-                    onClick={() => handleApproval(redemption.id, false)}
-                    className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-105 shadow-md"
-                  >
-                    <X size={16} />
-                    Deny
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      {/* Add Reward Button (Parents only) */}
+      {isParent && (
+        <button
+          onClick={() => openModal()}
+          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+        >
+          <Plus size={16} />
+          Add Reward
+        </button>
       )}
 
-      {/* Create Reward Form (Parents only) */}
-      {isParent && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">
-              {editingReward ? 'Edit Reward' : 'Create New Reward'}
-            </h3>
-            <button
-              onClick={() => editingReward ? cancelEdit() : setShowCreateForm(!showCreateForm)}
-              className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${
-                showCreateForm 
-                  ? 'bg-gray-500 hover:bg-gray-600 text-white'
-                  : 'bg-purple-600 hover:bg-purple-700 text-white'
-              }`}
-            >
-              {showCreateForm ? (
-                <>
-                  <X size={16} />
-                  Cancel
-                </>
-              ) : (
-                <>
-                  <Plus size={16} />
-                  Add Reward
-                </>
-              )}
-            </button>
-          </div>
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-800">
+                {editingReward ? `Edit Reward: ${editingReward.title}` : 'Create New Reward'}
+              </h3>
+              <button
+                onClick={closeModal}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
 
-          {showCreateForm && (
-            <form onSubmit={editingReward ? handleUpdateReward : handleCreateReward} className="space-y-4">
+            <form onSubmit={editingReward ? handleUpdateReward : handleCreateReward} className="p-6 space-y-4">
+              {message && (
+                <div className="bg-blue-50 border border-blue-200 text-blue-700 px-3 py-2 rounded text-sm">
+                  {message}
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-1">
                   Reward Title
@@ -395,22 +325,31 @@ const handleApproval = async (redemptionId: string, approve: boolean) => {
                 />
               </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors"
-              >
-                {loading ? (editingReward ? 'Updating...' : 'Creating...') : (editingReward ? 'Update Reward' : 'Create Reward')}
-              </button>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors"
+                >
+                  {loading ? (editingReward ? 'Updating...' : 'Creating...') : (editingReward ? 'Update Reward' : 'Create Reward')}
+                </button>
+              </div>
             </form>
-          )}
+          </div>
         </div>
       )}
 
       {/* Rewards List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {rewards.map((reward) => (
-          <div key={reward.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+          <div key={reward.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-start justify-between mb-3">
               <div className="bg-gradient-to-r from-purple-100 to-pink-100 p-2 rounded-lg">
                 <Gift className="text-purple-600" size={24} />
@@ -427,7 +366,7 @@ const handleApproval = async (redemptionId: string, approve: boolean) => {
               <p className="text-sm text-gray-600 mb-4">{reward.description}</p>
             )}
 
-            <div className="text-xs text-gray-500 mb-4">
+            <div className="text-xs text-gray-700 mb-4 font-medium">
               Created by {reward.createdBy.name}
             </div>
 
@@ -435,15 +374,15 @@ const handleApproval = async (redemptionId: string, approve: boolean) => {
             {isParent && (
               <div className="flex gap-2 mb-4">
                 <button
-                  onClick={() => startEditReward(reward)}
-                  className="flex items-center gap-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm transition-colors flex-1"
+                  onClick={() => openModal(reward)}
+                  className="flex items-center gap-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors"
                 >
                   <Edit2 size={14} />
                   Edit
                 </button>
                 <button
                   onClick={() => handleDeleteReward(reward.id)}
-                  className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm transition-colors flex-1"
+                  className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors"
                 >
                   <Trash2 size={14} />
                   Delete
@@ -451,11 +390,41 @@ const handleApproval = async (redemptionId: string, approve: boolean) => {
               </div>
             )}
 
+            {/* Pending Redemptions (Parents only) */}
+            {isParent && reward.redemptions.length > 0 && (
+              <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                <p className="text-sm font-medium text-orange-800 mb-2">
+                  Pending Requests ({reward.redemptions.length})
+                </p>
+                {reward.redemptions.map((redemption) => (
+                  <div key={redemption.id} className="space-y-2">
+                    <span className="text-sm text-orange-700 block">{redemption.user.name}</span>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <button 
+                        onClick={() => handleApproval(redemption.id, true)}
+                        className="flex-1 flex items-center justify-center gap-1 bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded text-sm transition-colors"
+                      >
+                        <Check size={14} />
+                        <span>Approve</span>
+                      </button>
+                      <button 
+                        onClick={() => handleApproval(redemption.id, false)}
+                        className="flex-1 flex items-center justify-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded text-sm transition-colors"
+                      >
+                        <X size={14} />
+                        <span>Deny</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Redeem Button (Children only) */}
             {!isParent && (
               <button 
                 onClick={() => handleRedeemReward(reward.id)}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-4 py-2.5 rounded-lg font-medium transition-all hover:scale-105 shadow-md"
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
               >
                 Redeem for {reward.pointsRequired} points
               </button>
