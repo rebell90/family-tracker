@@ -22,9 +22,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     console.log('📦 Request body:', body)
     
-    const { redemptionId, approved } = body
+    const { redemptionId, approve } = body
 
-    if (!redemptionId || approved === undefined) {
+    if (!redemptionId || approve === undefined) {
       return NextResponse.json(
         { error: 'Redemption ID and approval status are required' },
         { status: 400 }
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (approved) {
+    if (approve) {
       // ✅ APPROVE
       console.log('✅ Approving redemption...')
       
