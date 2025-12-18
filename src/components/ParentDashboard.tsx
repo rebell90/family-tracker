@@ -826,9 +826,10 @@ const fetchOverdueForChild = async (): Promise<void> => {
                                                 task.title,
                                                 task.assignedTo?.name || 'child'
                                             )}
-                                            className="text-gray-500 hover:text-gray-700 text-xs sm:text-sm underline"
+                                            className="flex items-center gap-1 bg-orange-100 hover:bg-orange-200 text-orange-700 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors min-w-[80px] justify-center"
                                         >
-                                            Undo
+                                            <span className="text-base">↩</span>
+                                            <span>Undo</span>
                                         </button>
                                     </div>
                                 )}

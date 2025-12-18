@@ -1,7 +1,7 @@
 'use client'
 
 import { useSession, signOut } from 'next-auth/react'
-import { LogOut, User, Home } from 'lucide-react'
+import { LogOut, Home } from 'lucide-react'
 import Link from 'next/link'
 import NotificationBell from '@/components/NotificationBell'
 
@@ -11,37 +11,43 @@ export default function AppHeader() {
   if (!session) return null
 
   const user = session.user as { name?: string; role?: string } | undefined
+  const isParent = user?.role === 'PARENT'
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-14 sm:h-16">
           {/* Logo/Title */}
-          <div className="flex items-center gap-4">
-            <Link href="/" className="flex items-center gap-2 text-xl font-bold text-purple-600 hover:text-purple-700 transition-colors">
-              <Home size={24} />
-              Family Tracker
-            </Link>
-          </div>
+          <Link 
+            href="/" 
+            className="flex items-center gap-1.5 sm:gap-2 text-base sm:text-xl font-bold text-purple-600 hover:text-purple-700 transition-colors"
+          >
+            <Home size={20} className="sm:w-6 sm:h-6" />
+            <span className="hidden xs:inline">Family Tracker</span>
+            <span className="xs:hidden">Tracker</span>
+          </Link>
 
           {/* User Menu */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-gray-600">
-              <User size={16} />
-              <span className="font-medium">{user?.name}</span>
-              <span className="text-sm text-gray-400">
-                ({user?.role === 'PARENT' ? '👨‍👩‍👧‍👦 Parent' : '🧒 Child'})
+          <div className="flex items-center gap-2 sm:gap-4">
+            {/* User Info - Compact */}
+            <div className="flex flex-col items-end">
+              <span className="font-medium text-gray-800 text-sm sm:text-base">{user?.name}</span>
+              <span className="text-xs text-gray-500">
+                {isParent ? 'Parent' : 'Child'}
               </span>
             </div>
-             <NotificationBell />
+
+            {/* Notification Bell */}
+            <NotificationBell />
             
-<button
-  onClick={() => signOut({ callbackUrl: window.location.origin + '/auth/signin' })}
-  className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm transition-colors"
->
-  <LogOut size={16} />
-  Logout
-</button>
+            {/* Logout Button */}
+            <button
+              onClick={() => signOut({ callbackUrl: window.location.origin + '/auth/signin' })}
+              className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm transition-colors"
+            >
+              <LogOut size={14} className="sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
           </div>
         </div>
       </div>

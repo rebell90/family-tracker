@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { Gift, Plus, Star, Check, X, Edit2, Trash2 } from 'lucide-react'
+import { Gift, Plus, Star, Check, X, Edit2, Trash2, AlertCircle } from 'lucide-react'
 
 // Define interfaces at the top
 interface Reward {
@@ -25,7 +25,11 @@ interface Redemption {
   user: {
     name: string;
   };
-  reward: Reward;
+  reward: {
+    id: string;
+    title: string;
+    pointsRequired: number;
+  };
 }
 
 export default function RewardManager() {
@@ -46,11 +50,13 @@ export default function RewardManager() {
   const isParent = user?.role === 'PARENT'
 
   useEffect(() => {
-    fetchRewards()
-    if (!isParent) {
-      fetchMyRedemptions()
+    if (session?.user) {
+      fetchRewards()
+      if (!isParent) {
+        fetchMyRedemptions()
+      }
     }
-  }, [isParent])
+  }, [isParent, session])
 
   const fetchRewards = async () => {
     try {
@@ -234,6 +240,33 @@ export default function RewardManager() {
     }
   }
 
+  // Get all unique pending redemptions (fix duplicates!)
+  const getAllPendingRedemptions = (): Redemption[] => {
+    const allRedemptions: Redemption[] = []
+    const seenIds = new Set<string>()
+    
+    rewards.forEach(reward => {
+      reward.redemptions.forEach(redemption => {
+        // Only add if we haven't seen this redemption ID before
+        if (!seenIds.has(redemption.id) && redemption.status === 'pending') {
+          seenIds.add(redemption.id)
+          allRedemptions.push({
+            ...redemption,
+            reward: {
+              id: reward.id,
+              title: reward.title,
+              pointsRequired: reward.pointsRequired
+            }
+          })
+        }
+      })
+    })
+    
+    return allRedemptions
+  }
+
+  const pendingRedemptions = getAllPendingRedemptions()
+
   return (
     <div className="space-y-6">
       <div>
@@ -247,6 +280,60 @@ export default function RewardManager() {
       {message && (
         <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg">
           {message}
+        </div>
+      )}
+
+      {/* Pending Approvals Section (Parents only) - AT TOP! */}
+      {isParent && pendingRedemptions.length > 0 && (
+        <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl shadow-lg overflow-hidden">
+          <div className="p-4 sm:p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-white/20 p-2 rounded-lg">
+                <AlertCircle size={24} />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg">
+                  Pending Reward Approvals ({pendingRedemptions.length})
+                </h3>
+                <p className="text-white/90 text-sm">
+                  Review and approve reward requests
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {pendingRedemptions.map((redemption) => (
+                <div key={redemption.id} className="bg-white rounded-lg p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">
+                        {redemption.user.name} wants "{redemption.reward.title}"
+                      </p>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {redemption.reward.pointsRequired} points • {new Date(redemption.requestedAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <button 
+                        onClick={() => handleApproval(redemption.id, true)}
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        <Check size={16} />
+                        <span>Approve</span>
+                      </button>
+                      <button 
+                        onClick={() => handleApproval(redemption.id, false)}
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        <X size={16} />
+                        <span>Deny</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -346,7 +433,7 @@ export default function RewardManager() {
         </div>
       )}
 
-      {/* Rewards List */}
+      {/* Rewards List - NO MORE NESTED PENDING REQUESTS! */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {rewards.map((reward) => (
           <div key={reward.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -387,36 +474,6 @@ export default function RewardManager() {
                   <Trash2 size={14} />
                   Delete
                 </button>
-              </div>
-            )}
-
-            {/* Pending Redemptions (Parents only) */}
-            {isParent && reward.redemptions.length > 0 && (
-              <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                <p className="text-sm font-medium text-orange-800 mb-2">
-                  Pending Requests ({reward.redemptions.length})
-                </p>
-                {reward.redemptions.map((redemption) => (
-                  <div key={redemption.id} className="space-y-2">
-                    <span className="text-sm text-orange-700 block">{redemption.user.name}</span>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <button 
-                        onClick={() => handleApproval(redemption.id, true)}
-                        className="flex-1 flex items-center justify-center gap-1 bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded text-sm transition-colors"
-                      >
-                        <Check size={14} />
-                        <span>Approve</span>
-                      </button>
-                      <button 
-                        onClick={() => handleApproval(redemption.id, false)}
-                        className="flex-1 flex items-center justify-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded text-sm transition-colors"
-                      >
-                        <X size={14} />
-                        <span>Deny</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
               </div>
             )}
 

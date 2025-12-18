@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { Trash2, Calendar, User, Award, AlertCircle } from 'lucide-react'
+import { Trash2, Calendar, User, Award, AlertCircle, CheckCircle } from 'lucide-react'
+import { getCategoryInfo } from '@/lib/categories'
 
 interface TaskCompletion {
   id: string
@@ -145,7 +146,7 @@ export default function ManageCompletions() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Header - MOBILE RESPONSIVE */}
+      {/* Header */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
         <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">
           Manage Task Completions
@@ -155,7 +156,7 @@ export default function ManageCompletions() {
         </p>
       </div>
 
-      {/* Filters - MOBILE RESPONSIVE */}
+      {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
         <h3 className="font-semibold text-gray-800 mb-4 text-base sm:text-lg">Filters</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -205,7 +206,7 @@ export default function ManageCompletions() {
         </div>
       </div>
 
-      {/* Completions List - MOBILE RESPONSIVE */}
+      {/* Completions List - TASK CARD STYLE! */}
       {Object.keys(groupedByDate).length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 sm:p-12 text-center">
           <Calendar className="mx-auto mb-4 text-gray-400" size={40} />
@@ -217,74 +218,90 @@ export default function ManageCompletions() {
           </p>
         </div>
       ) : (
-        <div className="space-y-3 sm:space-y-4">
+        <div className="space-y-6">
           {Object.entries(groupedByDate)
             .sort(([dateA], [dateB]) => new Date(dateB).getTime() - new Date(dateA).getTime())
             .map(([date, dayCompletions]) => (
-              <div key={date} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                {/* Date Header - MOBILE RESPONSIVE */}
-                <div className="bg-gray-50 px-4 sm:px-6 py-2.5 sm:py-3 border-b border-gray-200">
-                  <h3 className="font-semibold text-gray-800 text-sm sm:text-base">{date}</h3>
-                  <p className="text-xs sm:text-sm text-gray-600">{dayCompletions.length} completions</p>
+              <div key={date}>
+                {/* Date Header */}
+                <div className="flex items-center gap-3 mb-3">
+                  <Calendar className="text-gray-400" size={20} />
+                  <h3 className="font-semibold text-gray-800 text-base sm:text-lg">{date}</h3>
+                  <span className="text-sm text-gray-500">({dayCompletions.length} completions)</span>
                 </div>
 
-                {/* Completions - MOBILE RESPONSIVE */}
-                <div className="divide-y divide-gray-100">
-                  {dayCompletions.map(completion => (
-                    <div
-                      key={completion.id}
-                      className="p-3 sm:p-4 hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          {/* Task Title - MOBILE RESPONSIVE */}
-                          <h4 className="font-medium text-gray-900 mb-2 text-sm sm:text-base break-words">
-                            {completion.task.title}
-                          </h4>
+                {/* Task Cards */}
+                <div className="space-y-3">
+                  {dayCompletions.map(completion => {
+                    const categoryInfo = getCategoryInfo(completion.task.category as any)
+                    
+                    return (
+                      <div
+                        key={completion.id}
+                        className="bg-white rounded-xl shadow-sm border-2 border-green-200 p-4 hover:shadow-md transition-all"
+                      >
+                        <div className="flex items-start gap-3">
+                          {/* Checkmark Icon */}
+                          <div className="w-10 h-10 rounded-full bg-green-500 border-3 border-green-500 flex items-center justify-center shrink-0">
+                            <CheckCircle size={20} className="text-white" />
+                          </div>
 
-                          {/* Metadata - MOBILE RESPONSIVE: Stack on mobile */}
-                          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600">
-                            <div className="flex items-center gap-1">
-                              <User size={12} className="sm:w-[14px] sm:h-[14px] shrink-0" />
-                              <span className="truncate">{completion.user.name}</span>
+                          {/* Task Info */}
+                          <div className="flex-1 min-w-0">
+                            {/* Title */}
+                            <h4 className="font-semibold text-gray-800 mb-2 text-sm sm:text-base break-words">
+                              {completion.task.title}
+                            </h4>
+
+                            {/* Metadata Row */}
+                            <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm text-gray-600 mb-2">
+                              <div className="flex items-center gap-1">
+                                <User size={14} className="shrink-0" />
+                                <span className="font-medium">{completion.user.name}</span>
+                              </div>
+                              <span className="text-gray-300">•</span>
+                              <div className="flex items-center gap-1">
+                                <Award size={14} className="shrink-0 text-yellow-600" />
+                                <span className="font-medium text-yellow-700">{completion.task.points} pts</span>
+                              </div>
+                              <span className="text-gray-300">•</span>
+                              <div className="flex items-center gap-1">
+                                <Calendar size={14} className="shrink-0" />
+                                <span>
+                                  {new Date(completion.completedAt).toLocaleTimeString([], { 
+                                    hour: '2-digit', 
+                                    minute: '2-digit' 
+                                  })}
+                                </span>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1">
-                              <Award size={12} className="sm:w-[14px] sm:h-[14px] shrink-0" />
-                              <span>{completion.task.points} points</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Calendar size={12} className="sm:w-[14px] sm:h-[14px] shrink-0" />
-                              <span className="truncate">
-                                {new Date(completion.completedAt).toLocaleTimeString([], { 
-                                  hour: '2-digit', 
-                                  minute: '2-digit' 
-                                })}
+
+                            {/* Category Badge */}
+                            <div className="flex items-center gap-2">
+                              <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full ${categoryInfo.color}`}>
+                                <span>{categoryInfo.icon}</span>
+                                <span>{categoryInfo.label}</span>
                               </span>
                             </div>
                           </div>
 
-                          {/* Category Badge - MOBILE RESPONSIVE */}
-                          <span className="inline-block mt-2 px-2 py-0.5 sm:py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                            {completion.task.category}
-                          </span>
+                          {/* Delete Button */}
+                          <button
+                            onClick={() => handleDelete(completion.id, completion.task.title)}
+                            disabled={deleting === completion.id}
+                            className="shrink-0 p-2.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 border border-red-200 hover:border-red-300"
+                            title="Delete completion and refund points"
+                          >
+                            {deleting === completion.id ? (
+                              <div className="animate-spin rounded-full h-5 w-5 border-2 border-red-600 border-t-transparent"></div>
+                            ) : (
+                              <Trash2 size={20} />
+                            )}
+                          </button>
                         </div>
-
-                        {/* Delete Button - MOBILE RESPONSIVE */}
-                        <button
-                          onClick={() => handleDelete(completion.id, completion.task.title)}
-                          disabled={deleting === completion.id}
-                          className="self-center shrink-0 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                          title="Delete completion and refund points"
-                        >
-                          {deleting === completion.id ? (
-                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-red-600 border-t-transparent"></div>
-                          ) : (
-                            <Trash2 size={18} className="sm:w-5 sm:h-5" />
-                          )}
-                        </button>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             ))}
