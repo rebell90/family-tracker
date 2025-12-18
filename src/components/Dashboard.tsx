@@ -571,27 +571,26 @@ export default function Dashboard() {
                           </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2 sm:ml-auto shrink-0">
-                          <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap ${
-                            isCompleted
+                        <div className="flex items-center justify-between gap-3 sm:ml-auto shrink-0">
+                          <span className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap flex-shrink-0 ${isCompleted
                               ? 'bg-gray-100 text-gray-500'
                               : 'bg-yellow-100 text-yellow-700'
-                          }`}>
+                            }`}>
                             {task.points} pts
                           </span>
 
                           {!isCompleted && (
-                            <>
+                            <div className="flex gap-2 flex-shrink-0">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   handleCompleteTask(task.id, task.title)
                                 }}
-                                className="bg-green-500 hover:bg-green-600 text-white px-2 sm:px-3 py-1 rounded-lg text-xs sm:text-sm font-medium transition-colors flex items-center gap-1 whitespace-nowrap"
+                                className="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap min-w-[90px]"
                                 title="Complete task"
                               >
-                                <CheckCircle size={14} />
-                                <span className="hidden sm:inline">Complete</span>
+                                <CheckCircle size={16} />
+                                <span>✓</span>
                               </button>
                               {task.isRecurring && (
                                 <button
@@ -599,13 +598,13 @@ export default function Dashboard() {
                                     e.stopPropagation()
                                     handleSkipTask(task.id, task.title)
                                   }}
-                                  className="bg-orange-500 hover:bg-orange-600 text-white px-2 sm:px-3 py-1 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap"
+                                  className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap min-w-[60px]"
                                   title="Skip today"
                                 >
                                   Skip
                                 </button>
                               )}
-                            </>
+                            </div>
                           )}
 
                           {isCompleted && task.completedBy === userName && (
