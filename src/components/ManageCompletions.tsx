@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { Trash2, Calendar, User, Award, AlertCircle, CheckCircle } from 'lucide-react'
-import { getCategoryInfo } from '@/lib/categories'
+import { getCategoryInfo, type TaskCategory } from '@/lib/categories'
 
 interface TaskCompletion {
   id: string
@@ -12,7 +12,7 @@ interface TaskCompletion {
     id: string
     title: string
     points: number
-    category: string
+    category: TaskCategory
   }
   user: {
     id: string
@@ -233,7 +233,7 @@ export default function ManageCompletions() {
                 {/* Task Cards */}
                 <div className="space-y-3">
                   {dayCompletions.map(completion => {
-                    const categoryInfo = getCategoryInfo(completion.task.category as any)
+                    const categoryInfo = getCategoryInfo(completion.task.category)
                     
                     return (
                       <div
