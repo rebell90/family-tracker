@@ -42,15 +42,40 @@ export async function GET(request: NextRequest) {
       orderBy: { pointsRequired: 'asc' }
     })
 
+    // 🔧 Map redemptions to include computed 'status' field for frontend
+    const rewardsWithStatus = rewards.map(reward => ({
+      ...reward,
+      redemptions: reward.redemptions.map(redemption => {
+        // Compute status from database fields:
+        // - pending: approvedBy is null (not processed yet)
+        // - approved: approved = true AND approvedBy is set
+        // - denied: approved = false AND approvedBy is set
+        let status: 'pending' | 'approved' | 'denied'
+        if (!redemption.approvedBy) {
+          status = 'pending'
+        } else if (redemption.approved) {
+          status = 'approved'
+        } else {
+          status = 'denied'
+        }
+        
+        return {
+          ...redemption,
+          status,
+          requestedAt: redemption.redeemedAt.toISOString()
+        }
+      })
+    }))
+
     // 🔧 FIX: Different filtering logic for parents vs children
     let availableRewards
     
     if (user.role === 'PARENT') {
       // ✅ PARENTS: Show ALL rewards so they can see pending redemptions
-      availableRewards = rewards
+      availableRewards = rewardsWithStatus
     } else {
       // ✅ CHILDREN: Filter out one-time rewards they've already redeemed
-      availableRewards = rewards.filter(reward => {
+      availableRewards = rewardsWithStatus.filter(reward => {
         // If it's reusable, always show it
         if (reward.isReusable) return true
         
@@ -66,7 +91,7 @@ export async function GET(request: NextRequest) {
     // Add info about pending redemptions (useful for parent dashboard)
     const rewardsWithPendingInfo = availableRewards.map(reward => ({
       ...reward,
-      // ✅ Filter by status 'pending' (not approvedBy)
+      // ✅ Count redemptions with status 'pending'
       pendingCount: reward.redemptions.filter(r => r.status === 'pending').length
     }))
 
