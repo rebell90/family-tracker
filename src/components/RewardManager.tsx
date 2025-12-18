@@ -307,7 +307,7 @@ export default function RewardManager() {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex-1">
                       <p className="font-medium text-gray-900">
-                        {redemption.user.name} wants "{redemption.reward.title}"
+                        {redemption.user.name} wants  &quot;{redemption.reward.title} &quot;
                       </p>
                       <p className="text-sm text-gray-600 mt-1">
                         {redemption.reward.pointsRequired} points • {new Date(redemption.requestedAt).toLocaleDateString()}
