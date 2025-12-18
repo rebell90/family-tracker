@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
           select: { id: true, name: true }
         },
         redemptions: {
-          // UPDATED: Get ALL redemptions to check if one-time rewards were claimed
+          // Get ALL redemptions (including pending, approved, denied)
           include: {
             user: {
               select: { id: true, name: true }
@@ -42,23 +42,32 @@ export async function GET(request: NextRequest) {
       orderBy: { pointsRequired: 'asc' }
     })
 
-    // ⭐ NEW: Filter out one-time rewards that the current user has already redeemed
-    const availableRewards = rewards.filter(reward => {
-      // If it's reusable, always show it
-      if (reward.isReusable) return true
-      
-      // If it's one-time, only show if the current user hasn't redeemed it yet
-      const hasUserRedeemed = reward.redemptions.some(
-        redemption => redemption.userId === user.id
-      )
-      
-      return !hasUserRedeemed
-    })
+    // 🔧 FIX: Different filtering logic for parents vs children
+    let availableRewards
+    
+    if (user.role === 'PARENT') {
+      // ✅ PARENTS: Show ALL rewards so they can see pending redemptions
+      availableRewards = rewards
+    } else {
+      // ✅ CHILDREN: Filter out one-time rewards they've already redeemed
+      availableRewards = rewards.filter(reward => {
+        // If it's reusable, always show it
+        if (reward.isReusable) return true
+        
+        // If it's one-time, only show if the current user hasn't redeemed it yet
+        const hasUserRedeemed = reward.redemptions.some(
+          redemption => redemption.userId === user.id
+        )
+        
+        return !hasUserRedeemed
+      })
+    }
 
-    // NEW: For each reward, add info about pending redemptions (for parent view)
+    // Add info about pending redemptions (useful for parent dashboard)
     const rewardsWithPendingInfo = availableRewards.map(reward => ({
       ...reward,
-      pendingRedemptions: reward.redemptions.filter(r => !r.approvedBy)
+      // ✅ Filter by status 'pending' (not approvedBy)
+      pendingCount: reward.redemptions.filter(r => r.status === 'pending').length
     }))
 
     return NextResponse.json({ rewards: rewardsWithPendingInfo })
